@@ -1,21 +1,104 @@
-# Order Service - ASP.NET Core 8 Microservice
+# 📭 Order Service
 
-A robust, production-ready order management microservice built with ASP.NET Core 8, featuring clean architecture, PostgreSQL database, event-driven messaging, and comprehensive API capabilities.
+Order management microservice for xShop.ai - handles order creation, status tracking, order history, and embedded event consumer for status updates from saga orchestrator.
 
-## 🚀 Features
+## 🚀 Quick Start
 
-- **Clean Architecture**: Separation of concerns with distinct layers (Controllers, Services, Repositories, Models)
-- **Entity Framework Core**: PostgreSQL integration with Code First migrations
-- **JWT Authentication**: Token-based authentication with role-based authorization
-- **Event-Driven Architecture**: RabbitMQ and Azure Service Bus integration for order events
-- **Input Validation**: FluentValidation for comprehensive request validation
-- **Error Handling**: Centralized error handling middleware with standardized responses
-- **Pagination**: Built-in pagination support for list endpoints
-- **API Documentation**: Swagger/OpenAPI documentation with authentication
-- **Cross-Service Integration**: MongoDB ObjectId compatibility for microservice communication
-- **Production Ready**: Comprehensive logging, configuration management, and error handling
+### Prerequisites
 
-## 🏗️ Architecture
+- **.NET 8 SDK** ([Download](https://dotnet.microsoft.com/download/dotnet/8.0))
+- **PostgreSQL** 12+ ([Download](https://www.postgresql.org/download/))
+- **Dapr CLI** 1.16+ ([Install Guide](https://docs.dapr.io/getting-started/install-dapr-cli/))
+
+### Setup
+
+**1. Start PostgreSQL**
+```bash
+# Using Docker (recommended)
+docker run -d --name order-postgres -p 5432:5432 \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=orderservice_dev \
+  postgres:12
+
+# Or install PostgreSQL locally
+```
+
+**2. Clone & Restore**
+```bash
+git clone https://github.com/xshopai/order-service.git
+cd order-service
+dotnet restore
+```
+
+**3. Configure Environment**
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env - update these values:
+# ConnectionStrings__DefaultConnection=Host=localhost;Database=orderservice_dev;Username=postgres;Password=postgres
+# Jwt__Key=your-secret-key-min-32-characters
+```
+
+**4. Apply Migrations**
+```bash
+# Create database
+createdb orderservice_dev
+
+# Apply migrations
+dotnet ef database update
+```
+
+**5. Run Service**
+```bash
+# Start with Dapr (recommended)
+./run.sh       # Linux/Mac
+.\run.ps1      # Windows
+
+# Or run directly
+dotnet run
+```
+
+**6. Verify**
+```bash
+# Check health
+curl http://localhost:7000/health
+
+# Swagger UI
+Open https://localhost:5001/swagger
+```
+
+### Common Commands
+
+```bash
+# Run tests
+dotnet test
+
+# Build
+dotnet build
+
+# Add migration
+dotnet ef migrations add MigrationName
+
+# Remove migration
+dotnet ef migrations remove
+
+# Production mode
+dotnet run --configuration Release
+```
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [📖 Developer Guide](docs/DEVELOPER_GUIDE.md) | Local setup, debugging, daily workflows |
+| [📘 Technical Reference](docs/TECHNICAL.md) | Architecture, security, monitoring |
+| [🤝 Contributing](docs/CONTRIBUTING.md) | Contribution guidelines and workflow |
+| [📝 API Testing Guide](API_TESTING.md) | Complete API testing examples |
+
+**API Documentation**: Swagger UI available at `/swagger` endpoint.
+
+## ⚙️ Configuration
 
 ### Embedded Consumer Architecture
 
