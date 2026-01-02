@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Order Service is a critical .NET 8 microservice responsible for order management, processing, and lifecycle tracking within the AIOutlet platform. It handles sensitive customer data, payment information references, and financial transactions.
+The Order Service is a critical .NET 8 microservice responsible for order management, processing, and lifecycle tracking within the xShop.ai platform. It handles sensitive customer data, payment information references, and financial transactions.
 
 ## Supported Versions
 
@@ -63,8 +63,8 @@ We provide security updates for the following versions:
      },
      "JwtSettings": {
        "SecretKey": "*** (use environment variables)",
-       "Issuer": "AIOutlet.OrderService",
-       "Audience": "AIOutlet.Platform",
+       "Issuer": "xShop.ai.OrderService",
+       "Audience": "xShop.ai.Platform",
        "ExpirationMinutes": 60
      },
      "AzureServiceBus": {
@@ -260,8 +260,8 @@ ConnectionStrings__DefaultConnection="Host=server;Database=OrderService;Username
 
 # JWT Configuration
 JwtSettings__SecretKey="your-256-bit-secret-key"
-JwtSettings__Issuer="AIOutlet.OrderService"
-JwtSettings__Audience="AIOutlet.Platform"
+JwtSettings__Issuer="xShop.ai.OrderService"
+JwtSettings__Audience="xShop.ai.Platform"
 JwtSettings__ExpirationMinutes=60
 
 # Azure Integration
