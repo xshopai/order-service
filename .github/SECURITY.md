@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Order Service is a critical .NET 8 microservice responsible for order management, processing, and lifecycle tracking within the xShop.ai platform. It handles sensitive customer data, payment information references, and financial transactions.
+The Order Service is a critical .NET 8 microservice responsible for order management, processing, and lifecycle tracking within the xshop.ai platform. It handles sensitive customer data, payment information references, and financial transactions.
 
 ## Supported Versions
 
@@ -63,8 +63,8 @@ We provide security updates for the following versions:
      },
      "JwtSettings": {
        "SecretKey": "*** (use environment variables)",
-       "Issuer": "xShop.ai.OrderService",
-       "Audience": "xShop.ai.Platform",
+       "Issuer": "xshop.ai.OrderService",
+       "Audience": "xshop.ai.Platform",
        "ExpirationMinutes": 60
      },
      "AzureServiceBus": {
@@ -205,7 +205,7 @@ Order service vulnerabilities can affect financial transactions:
 
 1. **Do NOT** open a public issue
 2. **Do NOT** attempt to manipulate order data
-3. **Email** our security team at: <security@aioutlet.com>
+3. **Email** our security team at: <security@xshopai.com>
 
 ### Critical Security Areas
 
@@ -260,8 +260,8 @@ ConnectionStrings__DefaultConnection="Host=server;Database=OrderService;Username
 
 # JWT Configuration
 JwtSettings__SecretKey="your-256-bit-secret-key"
-JwtSettings__Issuer="xShop.ai.OrderService"
-JwtSettings__Audience="xShop.ai.Platform"
+JwtSettings__Issuer="xshop.ai.OrderService"
+JwtSettings__Audience="xshop.ai.Platform"
 JwtSettings__ExpirationMinutes=60
 
 # Azure Integration
@@ -282,7 +282,7 @@ OpenTelemetry__Endpoint="http://jaeger:14268/api/traces"
 Security__EnableHsts=true
 Security__HstsMaxAge=31536000
 Security__EnableCsp=true
-Security__CorsOrigins="https://app.aioutlet.com,https://admin.aioutlet.com"
+Security__CorsOrigins="https://app.xshopai.com,https://admin.xshopai.com"
 ```
 
 ### C# Security Configuration
@@ -383,9 +383,9 @@ The Order Service adheres to:
 
 For security-related questions or concerns:
 
-- **Email**: <security@aioutlet.com>
+- **Email**: <security@xshopai.com>
 - **Emergency**: Include "URGENT ORDER SECURITY" in subject line
-- **Financial Impact**: Copy <finance@aioutlet.com>
+- **Financial Impact**: Copy <finance@xshopai.com>
 
 ---
 

@@ -53,7 +53,7 @@ public static class JwtAuthenticationExtensions
                                 {
                                     ValidateIssuer = true,            // Validate issuer (auth-service)
                                     ValidIssuer = issuer,             // Expected issuer
-                                    ValidateAudience = true,          // Validate audience (aioutlet-platform)
+                                    ValidateAudience = true,          // Validate audience (xshopai-platform)
                                     ValidAudience = audience,         // Expected audience
                                     ValidateLifetime = true,          // Validate token expiration
                                     ValidateIssuerSigningKey = true,  // Validate signature with secret key

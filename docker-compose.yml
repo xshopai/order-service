@@ -15,7 +15,7 @@ services:
     volumes:
       - order_sqlserver_data:/var/opt/mssql
     networks:
-      - aioutlet-network
+      - xshopai-network
     healthcheck:
       test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Admin123! -Q 'SELECT 1' || exit 1"]
       interval: 10s
@@ -45,7 +45,7 @@ services:
       order-sqlserver:
         condition: service_healthy
     networks:
-      - aioutlet-network
+      - xshopai-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:1003/health"]
       interval: 30s
@@ -58,5 +58,5 @@ volumes:
     name: order_sqlserver_data
 
 networks:
-  aioutlet-network:
+  xshopai-network:
     external: true

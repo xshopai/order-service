@@ -1,6 +1,6 @@
 # 📭 Order Service
 
-Order management microservice for xShop.ai - handles order creation, status tracking, order history, and embedded event consumer for status updates from saga orchestrator.
+Order management microservice for xshop.ai - handles order creation, status tracking, order history, and embedded event consumer for status updates from saga orchestrator.
 
 ## 🚀 Quick Start
 
@@ -194,7 +194,7 @@ The Order Service supports **multiple message brokers** for maximum flexibility:
 # RabbitMQ (default)
 MessageBroker__Provider=RabbitMQ
 MessageBroker__RabbitMQ__ConnectionString=amqp://guest:guest@localhost:5672/
-MessageBroker__RabbitMQ__Exchange=aioutlet.events
+MessageBroker__RabbitMQ__Exchange=xshopai.events
 MessageBroker__RabbitMQ__ExchangeType=topic
 
 # Kafka (alternative)
