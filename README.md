@@ -1,6 +1,6 @@
 # 📭 Order Service
 
-Order management microservice for xshop.ai - handles order creation, status tracking, order history, and embedded event consumer for status updates from saga orchestrator.
+Order management microservice for xshopai - handles order creation, status tracking, order history, and embedded event consumer for status updates from saga orchestrator.
 
 ## 🚀 Quick Start
 
