@@ -9,7 +9,7 @@
       "postDebugTask": "dapr-stop",
       "program": "${workspaceFolder}/OrderService.Api/bin/Debug/net8.0/OrderService.Api.dll",
       "args": [],
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/OrderService.Api",
       "stopAtEntry": false,
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
@@ -17,13 +17,11 @@
         "DAPR_HTTP_PORT": "3506",
         "DAPR_GRPC_PORT": "50006"
       },
+      "console": "integratedTerminal",
       "serverReadyAction": {
         "action": "openExternally",
         "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
         "uriFormat": "%s/swagger"
-      },
-      "sourceFileMap": {
-        "/Views": "${workspaceFolder}/Views"
       }
     }
   ]
