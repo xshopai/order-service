@@ -29,8 +29,8 @@
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     
     <!-- Dapr -->
-    <PackageReference Include="Dapr.AspNetCore" Version="1.14.0" />
-    <PackageReference Include="Dapr.Client" Version="1.14.0" />
+    <PackageReference Include="Dapr.AspNetCore" Version="1.16.1" />
+    <PackageReference Include="Dapr.Client" Version="1.16.1" />
   </ItemGroup>
 
   <ItemGroup>
