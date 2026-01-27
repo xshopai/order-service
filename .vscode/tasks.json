@@ -23,13 +23,20 @@
       "command": "dapr",
       "args": [
         "run",
-        "--app-id", "order-service",
-        "--app-port", "8006",
-        "--dapr-http-port", "3506",
-        "--dapr-grpc-port", "50006",
-        "--log-level", "warn",
-        "--resources-path", "./.dapr",
-        "--config", "./.dapr/config.yaml"
+        "--app-id",
+        "order-service",
+        "--app-port",
+        "8006",
+        "--dapr-http-port",
+        "3506",
+        "--dapr-grpc-port",
+        "50006",
+        "--log-level",
+        "warn",
+        "--resources-path",
+        "./.dapr",
+        "--config",
+        "./.dapr/config.yaml"
       ],
       "isBackground": true,
       "presentation": {
@@ -62,10 +69,7 @@
       "label": "dapr-stop",
       "type": "shell",
       "command": "dapr",
-      "args": [
-        "stop",
-        "--app-id", "order-service"
-      ],
+      "args": ["stop", "--app-id", "order-service"],
       "presentation": {
         "echo": true,
         "reveal": "always",
