@@ -75,14 +75,14 @@ USER orderuser
 
 # Health check (using wget which is smaller than curl)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:1006/readiness || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8006/readiness || exit 1
 
 # Expose port
-EXPOSE 1006
+EXPOSE 8006
 
 # Run in development mode with hot reload
 WORKDIR "/src/OrderService.Api"
-ENTRYPOINT ["dotnet", "watch", "run", "--project", "OrderService.Api.csproj", "--urls", "http://0.0.0.0:1006"]
+ENTRYPOINT ["dotnet", "watch", "run", "--project", "OrderService.Api.csproj", "--urls", "http://0.0.0.0:8006"]
 
 # -----------------------------------------------------------------------------
 # Production stage - Optimized for production deployment
@@ -100,13 +100,13 @@ USER orderuser
 
 # Health check (using wget which is smaller than curl)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:1006/readiness || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8006/readiness || exit 1
 
 # Expose port
-EXPOSE 1006
+EXPOSE 8006
 
 # Configure ASP.NET Core
-ENV ASPNETCORE_URLS=http://+:1006
+ENV ASPNETCORE_URLS=http://+:8006
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 # Entry point
