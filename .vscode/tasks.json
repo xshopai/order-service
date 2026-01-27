@@ -24,7 +24,7 @@
       "args": [
         "run",
         "--app-id", "order-service",
-        "--app-port", "1006",
+        "--app-port", "8006",
         "--dapr-http-port", "3506",
         "--dapr-grpc-port", "50006",
         "--log-level", "warn",

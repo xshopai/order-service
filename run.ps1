@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 # Order Service - PowerShell Run Script with Dapr
-# Port: 1006, Dapr HTTP: 3506, Dapr gRPC: 50006
+# Port: 8006, Dapr HTTP: 3506, Dapr gRPC: 50006
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
@@ -17,10 +17,10 @@ Write-Host ""
 # Kill any existing processes on ports
 Write-Host "Cleaning up existing processes..." -ForegroundColor Yellow
 
-# Kill process on port 1006 (app port)
-$process = Get-NetTCPConnection -LocalPort 1006 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+# Kill process on port 8006 (app port)
+$process = Get-NetTCPConnection -LocalPort 8006 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
 if ($process) {
-    Write-Host "Killing process on port 1006 (PID: $process)" -ForegroundColor Yellow
+    Write-Host "Killing process on port 8006 (PID: $process)" -ForegroundColor Yellow
     Stop-Process -Id $process -Force -ErrorAction SilentlyContinue
 }
 
@@ -43,7 +43,7 @@ Start-Sleep -Seconds 2
 Write-Host ""
 Write-Host "Starting with Dapr sidecar..." -ForegroundColor Green
 Write-Host "App ID: order-service" -ForegroundColor Cyan
-Write-Host "App Port: 1006" -ForegroundColor Cyan
+Write-Host "App Port: 8006" -ForegroundColor Cyan
 Write-Host "Dapr HTTP Port: 3506" -ForegroundColor Cyan
 Write-Host "Dapr gRPC Port: 50006" -ForegroundColor Cyan
 Write-Host ""
@@ -53,13 +53,13 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 dapr run `
   --app-id order-service `
-  --app-port 1006 `
+  --app-port 8006 `
   --dapr-http-port 3506 `
   --dapr-grpc-port 50006 `
   --log-level error `
   --resources-path "$scriptDir/.dapr/components" `
   --config "$scriptDir/.dapr/config.yaml" `
-  -- dotnet watch --project "$scriptDir/OrderService.Api/OrderService.Api.csproj" --urls "http://localhost:1006"
+  -- dotnet watch --project "$scriptDir/OrderService.Api/OrderService.Api.csproj" --urls "http://localhost:8006"
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
