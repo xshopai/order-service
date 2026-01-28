@@ -3,6 +3,7 @@
 ## Overview
 
 This guide covers deploying the Order Service (.NET 8) to Azure Container Apps (ACA) with:
+
 - **Dapr integration** for event-driven order management
 - **Azure SQL Server** with Azure AD authentication (managed identity)
 - **Automatic database migrations** at startup
@@ -90,17 +91,18 @@ Encrypt=True
 
 ### Required Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `AZURE_CLIENT_ID` | Client ID of the managed identity | `5d11b916-5eb4-4f93-9ffa-a54872152892` |
-| `database_connectionString` | SQL connection string with Azure AD auth | See above |
-| `jwt_secret` | JWT signing secret (from Key Vault) | `se+DhS0POx...` |
-| `jwt_issuer` | JWT issuer | `auth-service` |
-| `jwt_audience` | JWT audience | `xshopai-platform` |
+| Variable                    | Description                              | Example                                |
+| --------------------------- | ---------------------------------------- | -------------------------------------- |
+| `AZURE_CLIENT_ID`           | Client ID of the managed identity        | `5d11b916-5eb4-4f93-9ffa-a54872152892` |
+| `database_connectionString` | SQL connection string with Azure AD auth | See above                              |
+| `jwt_secret`                | JWT signing secret (from Key Vault)      | `se+DhS0POx...`                        |
+| `jwt_issuer`                | JWT issuer                               | `auth-service`                         |
+| `jwt_audience`              | JWT audience                             | `xshopai-platform`                     |
 
 ## Database Migrations
 
 EF Core migrations run **automatically at startup** with retry logic:
+
 - 5 retry attempts
 - 5 second delay between retries
 - Handles Dapr sidecar timing issues
@@ -163,22 +165,22 @@ Invoke-Sqlcmd `
 
 ### Operational Endpoints (External)
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /health` | Overall service health |
+| Endpoint            | Description                |
+| ------------------- | -------------------------- |
+| `GET /health`       | Overall service health     |
 | `GET /health/ready` | Kubernetes readiness probe |
-| `GET /health/live` | Kubernetes liveness probe |
-| `GET /metrics` | Prometheus metrics |
+| `GET /health/live`  | Kubernetes liveness probe  |
+| `GET /metrics`      | Prometheus metrics         |
 
 ### Business Endpoints
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/orders` | List orders (paginated) |
-| `GET /api/orders/{id}` | Get order by ID |
-| `POST /api/orders` | Create order |
-| `PUT /api/orders/{id}` | Update order |
-| `DELETE /api/orders/{id}` | Cancel/delete order |
+| Endpoint                  | Description             |
+| ------------------------- | ----------------------- |
+| `GET /api/orders`         | List orders (paginated) |
+| `GET /api/orders/{id}`    | Get order by ID         |
+| `POST /api/orders`        | Create order            |
+| `PUT /api/orders/{id}`    | Update order            |
+| `DELETE /api/orders/{id}` | Cancel/delete order     |
 
 ## Monitoring
 
@@ -216,6 +218,7 @@ Invoke-Sqlcmd -ServerInstance "sql-xshopai-dev-74f9.database.windows.net" -Datab
 **Cause**: `AZURE_CLIENT_ID` environment variable not set or incorrect.
 
 **Fix**:
+
 ```bash
 # Get the managed identity client ID
 az identity show --name id-xshopai-dev-74f9 --resource-group rg-xshopai-dev-74f9 --query clientId -o tsv
@@ -238,6 +241,7 @@ az containerapp update \
 **Cause**: SQL Server firewall blocking connection.
 
 **Fix**: Add firewall rule or ensure Container Apps subnet is allowed:
+
 ```bash
 az sql server firewall-rule create \
     --resource-group rg-xshopai-dev-74f9 \
@@ -250,6 +254,7 @@ az sql server firewall-rule create \
 ### Dapr Sidecar Connection Errors
 
 These are expected during startup. The retry logic handles timing issues:
+
 ```
 [WRN]: Failed to retrieve secret 'jwt:secret' from Dapr, trying configuration fallback
 ```
@@ -258,11 +263,11 @@ The service falls back to environment variables when Dapr isn't ready.
 
 ## Resource Naming Convention
 
-| Resource Type | Name Pattern | Example |
-|---------------|-------------|---------|
-| Resource Group | `rg-xshopai-{env}-{suffix}` | `rg-xshopai-dev-74f9` |
-| SQL Server | `sql-xshopai-{env}-{suffix}` | `sql-xshopai-dev-74f9` |
-| Database | `order_service_db` | `order_service_db` |
-| Managed Identity | `id-xshopai-{env}-{suffix}` | `id-xshopai-dev-74f9` |
-| Container App | `order-service` | `order-service` |
-| Container Env | `cae-xshopai-{env}-{suffix}` | `cae-xshopai-dev-74f9` |
+| Resource Type    | Name Pattern                 | Example                |
+| ---------------- | ---------------------------- | ---------------------- |
+| Resource Group   | `rg-xshopai-{env}-{suffix}`  | `rg-xshopai-dev-74f9`  |
+| SQL Server       | `sql-xshopai-{env}-{suffix}` | `sql-xshopai-dev-74f9` |
+| Database         | `order_service_db`           | `order_service_db`     |
+| Managed Identity | `id-xshopai-{env}-{suffix}`  | `id-xshopai-dev-74f9`  |
+| Container App    | `order-service`              | `order-service`        |
+| Container Env    | `cae-xshopai-{env}-{suffix}` | `cae-xshopai-dev-74f9` |
