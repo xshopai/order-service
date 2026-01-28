@@ -102,9 +102,11 @@ APP_PORT=8006
 PROJECT_NAME="xshopai"
 DATABASE_NAME="order_service_db"
 
-# Dapr configuration (per PORT_CONFIGURATION.md: order-service = 3506/50006)
-DAPR_HTTP_PORT=3506
-DAPR_GRPC_PORT=50006
+# Dapr configuration for Azure Container Apps
+# In ACA, Dapr sidecar ALWAYS runs on port 3500 (HTTP) and 50001 (gRPC)
+# (different from local dev where each service has unique ports per PORT_CONFIGURATION.md)
+DAPR_HTTP_PORT=3500
+DAPR_GRPC_PORT=50001
 DAPR_PUBSUB_NAME="pubsub"
 
 # Get script directory and service directory
