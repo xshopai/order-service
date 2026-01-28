@@ -290,14 +290,41 @@ fi
 
 # Grant managed identity access to database
 if [ -n "$IDENTITY_CLIENT_ID" ]; then
-    print_info "Note: Managed identity access to SQL database should be configured manually."
-    print_info "Run this SQL command on the database:"
-    echo ""
-    echo "   CREATE USER [$MANAGED_IDENTITY] FROM EXTERNAL PROVIDER;"
-    echo "   ALTER ROLE db_datareader ADD MEMBER [$MANAGED_IDENTITY];"
-    echo "   ALTER ROLE db_datawriter ADD MEMBER [$MANAGED_IDENTITY];"
-    echo "   ALTER ROLE db_ddladmin ADD MEMBER [$MANAGED_IDENTITY];"
-    echo ""
+    print_info "Configuring managed identity SQL access..."
+    
+    # Try to configure automatically using sqlcmd
+    if command -v sqlcmd &> /dev/null; then
+        ACCESS_TOKEN=$(az account get-access-token --resource https://database.windows.net --query accessToken -o tsv 2>/dev/null || echo "")
+        
+        if [ -n "$ACCESS_TOKEN" ]; then
+            print_info "Granting SQL permissions to managed identity..."
+            SQL_SCRIPT="
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = '$MANAGED_IDENTITY')
+BEGIN
+    CREATE USER [$MANAGED_IDENTITY] FROM EXTERNAL PROVIDER;
+END
+ALTER ROLE db_datareader ADD MEMBER [$MANAGED_IDENTITY];
+ALTER ROLE db_datawriter ADD MEMBER [$MANAGED_IDENTITY];
+ALTER ROLE db_ddladmin ADD MEMBER [$MANAGED_IDENTITY];
+PRINT 'Configured: $MANAGED_IDENTITY';
+"
+            echo "$SQL_SCRIPT" | sqlcmd -S "$SQL_HOST" -d "$DATABASE_NAME" -G -I 2>/dev/null
+            if [ $? -eq 0 ]; then
+                print_success "SQL permissions granted to managed identity"
+            else
+                print_warning "Auto-configuration failed. Manual setup may be required."
+            fi
+        fi
+    else
+        print_info "Note: sqlcmd not found. Managed identity access may need manual configuration."
+        print_info "If the service fails to connect, run these SQL commands in Azure Portal:"
+        echo ""
+        echo "   CREATE USER [$MANAGED_IDENTITY] FROM EXTERNAL PROVIDER;"
+        echo "   ALTER ROLE db_datareader ADD MEMBER [$MANAGED_IDENTITY];"
+        echo "   ALTER ROLE db_datawriter ADD MEMBER [$MANAGED_IDENTITY];"
+        echo "   ALTER ROLE db_ddladmin ADD MEMBER [$MANAGED_IDENTITY];"
+        echo ""
+    fi
 fi
 
 # ============================================================================
@@ -370,6 +397,11 @@ ENV_VARS+=("Dapr__Enabled=true")
 ENV_VARS+=("Dapr__HttpPort=$DAPR_HTTP_PORT")
 ENV_VARS+=("Dapr__PubSubName=$DAPR_PUBSUB_NAME")
 ENV_VARS+=("Dapr__AppId=$SERVICE_NAME")
+
+# Add Azure Client ID for managed identity (required for DefaultAzureCredential)
+if [ -n "$IDENTITY_CLIENT_ID" ]; then
+    ENV_VARS+=("AZURE_CLIENT_ID=$IDENTITY_CLIENT_ID")
+fi
 
 # Add database connection string (fallback format for DaprSecretService)
 # The code converts database:connectionString → database_connectionString for fallback

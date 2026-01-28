@@ -99,9 +99,43 @@ builder.Services.AddSingleton<DaprEventPublisher>();
 
 var app = builder.Build();
 
-// Note: Database migrations are NOT run at startup to avoid Dapr timing issues.
-// The database should be migrated separately using: dotnet ef database update
-// The DbContext will connect lazily when first accessed, at which point Dapr will be ready.
+// Apply database migrations at startup with retry logic
+// Wait for Dapr sidecar and database connectivity
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var maxRetries = 5;
+    var retryDelaySeconds = 5;
+    
+    for (int retry = 0; retry < maxRetries; retry++)
+    {
+        try
+        {
+            if (retry > 0)
+            {
+                Log.Information("Waiting {Delay} seconds before retry {Retry}/{MaxRetries}...", 
+                    retryDelaySeconds, retry + 1, maxRetries);
+                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
+            }
+            
+            var context = services.GetRequiredService<OrderDbContext>();
+            Log.Information("Applying database migrations (attempt {Attempt}/{MaxRetries})...", 
+                retry + 1, maxRetries);
+            await context.Database.MigrateAsync();
+            Log.Information("Database migrations applied successfully");
+            break; // Success - exit retry loop
+        }
+        catch (Exception ex) when (retry < maxRetries - 1)
+        {
+            Log.Warning(ex, "Migration attempt {Attempt} failed, will retry...", retry + 1);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "All migration attempts failed. Service will start but database may not be ready.");
+            // Don't throw - allow app to start even if migrations fail
+        }
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
