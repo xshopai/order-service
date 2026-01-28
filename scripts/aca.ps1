@@ -53,9 +53,9 @@ $AppPort = 8006
 $ProjectName = "xshopai"
 $DatabaseName = "order_service_db"
 
-# Dapr configuration (per PORT_CONFIGURATION.md: order-service = 3506/50006)
-$DaprHttpPort = 3506
-$DaprGrpcPort = 50006
+# Dapr configuration (standard ports - same for local dev and ACA)
+$DaprHttpPort = 3500
+$DaprGrpcPort = 50001
 $DaprPubSubName = "pubsub"
 
 # Get script directory and service directory

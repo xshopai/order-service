@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 # Order Service - PowerShell Run Script with Dapr
-# Port: 8006, Dapr HTTP: 3506, Dapr gRPC: 50006
+# Port: 8006, Dapr HTTP: 3500, Dapr gRPC: 50001
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
@@ -24,17 +24,17 @@ if ($process) {
     Stop-Process -Id $process -Force -ErrorAction SilentlyContinue
 }
 
-# Kill process on port 3506 (Dapr HTTP port)
-$process = Get-NetTCPConnection -LocalPort 3506 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+# Kill process on port 3500 (Dapr HTTP port)
+$process = Get-NetTCPConnection -LocalPort 3500 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
 if ($process) {
-    Write-Host "Killing process on port 3506 (PID: $process)" -ForegroundColor Yellow
+    Write-Host "Killing process on port 3500 (PID: $process)" -ForegroundColor Yellow
     Stop-Process -Id $process -Force -ErrorAction SilentlyContinue
 }
 
-# Kill process on port 50006 (Dapr gRPC port)
-$process = Get-NetTCPConnection -LocalPort 50006 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+# Kill process on port 50001 (Dapr gRPC port)
+$process = Get-NetTCPConnection -LocalPort 50001 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
 if ($process) {
-    Write-Host "Killing process on port 50006 (PID: $process)" -ForegroundColor Yellow
+    Write-Host "Killing process on port 50001 (PID: $process)" -ForegroundColor Yellow
     Stop-Process -Id $process -Force -ErrorAction SilentlyContinue
 }
 
@@ -44,8 +44,8 @@ Write-Host ""
 Write-Host "Starting with Dapr sidecar..." -ForegroundColor Green
 Write-Host "App ID: order-service" -ForegroundColor Cyan
 Write-Host "App Port: 8006" -ForegroundColor Cyan
-Write-Host "Dapr HTTP Port: 3506" -ForegroundColor Cyan
-Write-Host "Dapr gRPC Port: 50006" -ForegroundColor Cyan
+Write-Host "Dapr HTTP Port: 3500" -ForegroundColor Cyan
+Write-Host "Dapr gRPC Port: 50001" -ForegroundColor Cyan
 Write-Host ""
 
 # Get the directory where this script is located
@@ -54,8 +54,8 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 dapr run `
   --app-id order-service `
   --app-port 8006 `
-  --dapr-http-port 3506 `
-  --dapr-grpc-port 50006 `
+  --dapr-http-port 3500 `
+  --dapr-grpc-port 50001 `
   --log-level error `
   --resources-path "$scriptDir/.dapr/components" `
   --config "$scriptDir/.dapr/config.yaml" `

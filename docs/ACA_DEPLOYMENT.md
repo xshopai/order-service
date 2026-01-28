@@ -17,7 +17,7 @@ This guide covers deploying the Order Service (.NET 8) to Azure Container Apps (
 │  │                      order-service                           │   │
 │  │  ┌─────────────────┐    ┌─────────────────┐                │   │
 │  │  │   .NET 8 App    │────│   Dapr Sidecar   │                │   │
-│  │  │   (Port 8006)   │    │   (Port 3506)    │                │   │
+│  │  │   (Port 8006)   │    │   (Port 3500)    │                │   │
 │  │  └────────┬────────┘    └────────┬─────────┘                │   │
 │  └───────────│───────────────────────│──────────────────────────┘   │
 │              │                       │                              │

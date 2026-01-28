@@ -30,11 +30,13 @@ Update `OrderService.Api/appsettings.Development.json`:
     "DefaultConnection": "Host=localhost;Port=5434;Database=order_db;Username=orderadmin;Password=orderpass"
   },
   "Dapr": {
-    "HttpPort": 3506,
+    "HttpPort": 3500,
     "PubSubName": "xshopai-pubsub"
   }
 }
 ```
+
+> **Note:** All services now use the standard Dapr ports (3500 for HTTP, 50001 for gRPC). This simplifies configuration and works consistently whether running via Docker Compose or individual service runs.
 
 ### 3. Run Database Migrations
 
