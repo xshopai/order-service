@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using OrderService.Core.Configuration;
+using OrderService.Core.Messaging;
 using OrderService.Core.Models.DTOs;
 using OrderService.Core.Models.Entities;
 using OrderService.Core.Models.Enums;
@@ -23,18 +24,18 @@ public class OrderService : IOrderService
 
     private readonly IOrderRepository _orderRepository;
     private readonly StandardLogger _logger;
-    private readonly DaprEventPublisher _daprEventPublisher;
+    private readonly IMessagingProvider _messagingProvider;
     private readonly ICurrentUserService _currentUserService;
 
     public OrderService(
         IOrderRepository orderRepository, 
         StandardLogger logger,
-        DaprEventPublisher daprEventPublisher,
+        IMessagingProvider messagingProvider,
         ICurrentUserService currentUserService)
     {
         _orderRepository = orderRepository;
         _logger = logger;
-        _daprEventPublisher = daprEventPublisher;
+        _messagingProvider = messagingProvider;
         _currentUserService = currentUserService;
     }
 
@@ -224,9 +225,10 @@ public class OrderService : IOrderService
             try
             {
                 var orderCreatedEvent = MapToOrderCreatedEvent(createdOrder, currentCorrelationId);
-                await _daprEventPublisher.PublishEventAsync(
+                await _messagingProvider.PublishEventAsync(
                     "order.created", 
-                    orderCreatedEvent);
+                    orderCreatedEvent,
+                    currentCorrelationId);
                 
                 _logger.Info("Published OrderCreated event", currentCorrelationId, new {
                     orderNumber = createdOrder.OrderNumber,

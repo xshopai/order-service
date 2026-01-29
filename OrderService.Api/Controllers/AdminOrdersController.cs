@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using OrderService.Core.Messaging;
 using OrderService.Core.Models.DTOs;
 using OrderService.Core.Models.Enums;
 using OrderService.Core.Models.Events;
@@ -18,16 +19,16 @@ public class AdminOrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
     private readonly StandardLogger _logger;
-    private readonly DaprEventPublisher _daprEventPublisher;
+    private readonly IMessagingProvider _messagingProvider;
 
     public AdminOrdersController(
         IOrderService orderService,
         StandardLogger logger,
-        DaprEventPublisher daprEventPublisher)
+        IMessagingProvider messagingProvider)
     {
         _orderService = orderService;
         _logger = logger;
-        _daprEventPublisher = daprEventPublisher;
+        _messagingProvider = messagingProvider;
     }
 
     /// <summary>
@@ -228,7 +229,7 @@ public class AdminOrdersController : ControllerBase
                     _ => "order-updated"
                 };
 
-                await _daprEventPublisher.PublishEventAsync(topicName, orderEvent);
+                await _messagingProvider.PublishEventAsync(topicName, orderEvent, correlationId);
 
                 _logger.Info($"Published order status changed event: {topicName}", correlationId, new {
                     orderId = order.Id,
@@ -308,7 +309,7 @@ public class AdminOrdersController : ControllerBase
                     CorrelationId = correlationId
                 };
 
-                await _daprEventPublisher.PublishEventAsync("order-deleted", orderDeletedEvent);
+                await _messagingProvider.PublishEventAsync("order-deleted", orderDeletedEvent, correlationId);
 
                 _logger.Info("Published order deleted event", correlationId, new {
                     orderId = order.Id,

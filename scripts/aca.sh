@@ -118,16 +118,15 @@ SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
 # ============================================================================
 echo -e "${CYAN}Available Environments:${NC}"
 echo "   dev     - Development environment"
-echo "   staging - Staging/QA environment"
 echo "   prod    - Production environment"
 echo ""
 
-read -p "Enter environment (dev/staging/prod) [dev]: " ENVIRONMENT
+read -p "Enter environment (dev/prod) [dev]: " ENVIRONMENT
 ENVIRONMENT="${ENVIRONMENT:-dev}"
 
-if [[ ! "$ENVIRONMENT" =~ ^(dev|staging|prod)$ ]]; then
+if [[ ! "$ENVIRONMENT" =~ ^(dev|prod)$ ]]; then
     print_error "Invalid environment: $ENVIRONMENT"
-    echo "   Valid values: dev, staging, prod"
+    echo "   Valid values: dev, prod"
     exit 1
 fi
 print_success "Environment: $ENVIRONMENT"
@@ -136,10 +135,6 @@ print_success "Environment: $ENVIRONMENT"
 case "$ENVIRONMENT" in
     dev)
         ASPNETCORE_ENVIRONMENT="Development"
-        LOG_LEVEL="Information"
-        ;;
-    staging)
-        ASPNETCORE_ENVIRONMENT="Staging"
         LOG_LEVEL="Information"
         ;;
     prod)
@@ -184,10 +179,14 @@ SQL_SERVER="sql-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
 KEY_VAULT="kv-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
 MANAGED_IDENTITY="id-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
 
+# Container App name follows convention: ca-{service}-{env}-{suffix}
+CONTAINER_APP_NAME="ca-${SERVICE_NAME}-${ENVIRONMENT}-${SUFFIX}"
+
 print_info "Derived resource names:"
 echo "   Resource Group:      $RESOURCE_GROUP"
 echo "   Container Registry:  $ACR_NAME"
 echo "   Container Env:       $CONTAINER_ENV"
+echo "   Container App:       $CONTAINER_APP_NAME"
 echo "   SQL Server:          $SQL_SERVER"
 echo "   Key Vault:           $KEY_VAULT"
 echo ""
@@ -248,22 +247,24 @@ print_header "Retrieving Secrets from Key Vault"
 
 # Get JWT secret for authentication
 print_info "Retrieving JWT_SECRET from Key Vault..."
-JWT_SECRET=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "jwt-secret" --query value -o tsv 2>/dev/null || echo "")
+JWT_SECRET=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "xshopai-jwt-secret" --query value -o tsv 2>/dev/null || echo "")
 if [ -z "$JWT_SECRET" ]; then
     print_warning "JWT_SECRET not found in Key Vault. JWT validation may fail."
 else
     print_success "JWT_SECRET retrieved"
 fi
 
-# Get SQL connection string (Azure AD auth)
+# Get SQL connection string (Azure AD auth, server-level)
 print_info "Retrieving SQL connection string from Key Vault..."
-SQL_CONNECTION=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "sql-connection" --query value -o tsv 2>/dev/null || echo "")
+SQL_CONNECTION=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "xshopai-sql-server-connection" --query value -o tsv 2>/dev/null || echo "")
 if [ -z "$SQL_CONNECTION" ]; then
     print_warning "SQL connection string not found in Key Vault."
     SQL_CONNECTION="Server=$SQL_HOST;Database=$DATABASE_NAME;Authentication=Active Directory Default;TrustServerCertificate=True;Encrypt=True"
     print_info "Using default connection string: Server=$SQL_HOST;Database=$DATABASE_NAME;Authentication=Active Directory Default"
 else
-    print_success "SQL connection string retrieved"
+    # Append database name to server-level connection string
+    SQL_CONNECTION="${SQL_CONNECTION};Database=$DATABASE_NAME"
+    print_success "SQL connection string retrieved (appended Database=$DATABASE_NAME)"
 fi
 
 # ============================================================================
@@ -418,21 +419,22 @@ if [ -n "$JWT_SECRET" ]; then
 fi
 
 # Check if container app exists
-if az containerapp show --name "$SERVICE_NAME" --resource-group "$RESOURCE_GROUP" &> /dev/null; then
-    print_info "Container app '$SERVICE_NAME' exists, updating..."
+if az containerapp show --name "$CONTAINER_APP_NAME" --resource-group "$RESOURCE_GROUP" &> /dev/null; then
+    print_info "Container app '$CONTAINER_APP_NAME' exists, updating..."
     az containerapp update \
-        --name "$SERVICE_NAME" \
+        --name "$CONTAINER_APP_NAME" \
         --resource-group "$RESOURCE_GROUP" \
         --image "$IMAGE_TAG" \
         --set-env-vars "${ENV_VARS[@]}" \
         --output none
     print_success "Container app updated"
 else
-    print_info "Creating container app '$SERVICE_NAME'..."
+    print_info "Creating container app '$CONTAINER_APP_NAME'..."
     
     # Build the create command
     MSYS_NO_PATHCONV=1 az containerapp create \
-        --name "$SERVICE_NAME" \
+        --name "$CONTAINER_APP_NAME" \
+        --container-name "$SERVICE_NAME" \
         --resource-group "$RESOURCE_GROUP" \
         --environment "$CONTAINER_ENV" \
         --image "$IMAGE_TAG" \
@@ -462,7 +464,7 @@ print_header "Step 4: Verifying Deployment"
 
 # Get app FQDN (internal ingress)
 APP_FQDN=$(az containerapp show \
-    --name "$SERVICE_NAME" \
+    --name "$CONTAINER_APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --query properties.configuration.ingress.fqdn \
     -o tsv)
@@ -475,7 +477,7 @@ echo ""
 # Check container app status
 sleep 10
 APP_STATUS=$(az containerapp show \
-    --name "$SERVICE_NAME" \
+    --name "$CONTAINER_APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --query properties.runningStatus \
     -o tsv 2>/dev/null || echo "Unknown")
@@ -523,9 +525,9 @@ echo -e "${CYAN}Dapr Service Invocation (from other services):${NC}"
 echo "   http://localhost:\$DAPR_HTTP_PORT/v1.0/invoke/$SERVICE_NAME/method/{endpoint}"
 echo ""
 echo -e "${CYAN}Useful Commands:${NC}"
-echo -e "   View logs:        ${BLUE}az containerapp logs show --name $SERVICE_NAME --resource-group $RESOURCE_GROUP --follow${NC}"
-echo -e "   View Dapr logs:   ${BLUE}az containerapp logs show --name $SERVICE_NAME --resource-group $RESOURCE_GROUP --container daprd --follow${NC}"
-echo -e "   Delete app:       ${BLUE}az containerapp delete --name $SERVICE_NAME --resource-group $RESOURCE_GROUP --yes${NC}"
+echo -e "   View logs:        ${BLUE}az containerapp logs show --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --follow${NC}"
+echo -e "   View Dapr logs:   ${BLUE}az containerapp logs show --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --container daprd --follow${NC}"
+echo -e "   Delete app:       ${BLUE}az containerapp delete --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --yes${NC}"
 echo ""
 echo -e "${YELLOW}Note: If using Azure AD authentication for SQL, ensure the managed identity${NC}"
 echo -e "${YELLOW}has been granted database permissions (see Step 1 output for SQL commands).${NC}"

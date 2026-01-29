@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Moq;
 using Xunit;
 using FluentAssertions;
+using OrderService.Core.Messaging;
 using OrderService.Core.Services;
 using OrderService.Core.Repositories;
 using OrderService.Core.Models.DTOs;
@@ -17,7 +18,7 @@ public class OrderServiceTests
 {
     private readonly Mock<IOrderRepository> _mockOrderRepository;
     private readonly StandardLogger _logger;
-    private readonly Mock<DaprEventPublisher> _mockDaprEventPublisher;
+    private readonly Mock<IMessagingProvider> _mockMessagingProvider;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly OrderService.Core.Services.OrderService _orderService;
 
@@ -25,10 +26,14 @@ public class OrderServiceTests
     {
         _mockOrderRepository = new Mock<IOrderRepository>();
         
-        // Mock DaprEventPublisher
-        var mockDaprClient = new Mock<Dapr.Client.DaprClient>();
-        var mockDaprLogger = new Mock<ILogger<DaprEventPublisher>>();
-        _mockDaprEventPublisher = new Mock<DaprEventPublisher>(mockDaprClient.Object, mockDaprLogger.Object);
+        // Mock IMessagingProvider - setup both generic and non-generic overloads
+        _mockMessagingProvider = new Mock<IMessagingProvider>();
+        _mockMessagingProvider
+            .Setup(x => x.PublishEventAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockMessagingProvider
+            .Setup(x => x.PublishEventAsync<It.IsAnyType>(It.IsAny<string>(), It.IsAny<It.IsAnyType>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         
         _mockCurrentUserService = new Mock<ICurrentUserService>();
 
@@ -54,7 +59,7 @@ public class OrderServiceTests
         _orderService = new OrderService.Core.Services.OrderService(
             _mockOrderRepository.Object,
             _logger,
-            _mockDaprEventPublisher.Object,
+            _mockMessagingProvider.Object,
             _mockCurrentUserService.Object
         );
     }
@@ -233,7 +238,12 @@ public class OrderServiceTests
         result.Status.Should().Be(OrderStatus.Created);
         result.Currency.Should().Be("USD");
         _mockOrderRepository.Verify(x => x.CreateOrderAsync(It.IsAny<Order>()), Times.Once);
-        _mockDaprEventPublisher.Verify(x => x.PublishEventAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Once);
+        // Verify messaging was invoked (using It.IsAny<It.IsAnyType>() to match the generic method)
+        _mockMessagingProvider.Verify(x => x.PublishEventAsync<It.IsAnyType>(
+            It.IsAny<string>(), 
+            It.IsAny<It.IsAnyType>(), 
+            It.IsAny<string?>(), 
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

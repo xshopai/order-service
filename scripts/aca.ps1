@@ -109,15 +109,14 @@ Write-Header "Environment Selection"
 
 Write-Host "Available Environments:" -ForegroundColor Cyan
 Write-Host "   dev     - Development environment"
-Write-Host "   staging - Staging/QA environment"
 Write-Host "   prod    - Production environment"
 Write-Host ""
 
-$Environment = Read-HostWithDefault -Prompt "Enter environment (dev/staging/prod)" -Default "dev"
+$Environment = Read-HostWithDefault -Prompt "Enter environment (dev/prod)" -Default "dev"
 
-if ($Environment -notmatch '^(dev|staging|prod)$') {
+if ($Environment -notmatch '^(dev|prod)$') {
     Write-Error "Invalid environment: $Environment"
-    Write-Host "   Valid values: dev, staging, prod"
+    Write-Host "   Valid values: dev, prod"
     exit 1
 }
 Write-Success "Environment: $Environment"
@@ -126,10 +125,6 @@ Write-Success "Environment: $Environment"
 switch ($Environment) {
     "dev" {
         $AspNetCoreEnvironment = "Development"
-        $LogLevel = "Information"
-    }
-    "staging" {
-        $AspNetCoreEnvironment = "Staging"
         $LogLevel = "Information"
     }
     "prod" {
@@ -240,9 +235,9 @@ if ([string]::IsNullOrWhiteSpace($IdentityId)) {
 # ============================================================================
 Write-Header "Retrieving Secrets from Key Vault"
 
-# Get JWT secret for authentication
+# Get JWT secret for authentication (using xshopai- prefix)
 Write-Info "Retrieving JWT_SECRET from Key Vault..."
-$JwtSecret = az keyvault secret show --vault-name $KeyVault --name "jwt-secret" --query value -o tsv 2>$null
+$JwtSecret = az keyvault secret show --vault-name $KeyVault --name "xshopai-jwt-secret" --query value -o tsv 2>$null
 if ([string]::IsNullOrWhiteSpace($JwtSecret)) {
     Write-Warning "JWT_SECRET not found in Key Vault. JWT validation may fail."
 } else {

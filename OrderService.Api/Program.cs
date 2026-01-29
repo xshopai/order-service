@@ -3,6 +3,7 @@ using Microsoft.OpenApi.Models;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using OrderService.Core.Data;
+using OrderService.Core.Messaging;
 using OrderService.Core.Repositories;
 using OrderService.Core.Services;
 using OrderService.Core.Extensions;
@@ -95,7 +96,9 @@ builder.Services.AddSingleton<StandardLogger>();
 
 // Register Dapr services
 builder.Services.AddSingleton<DaprSecretService>();
-builder.Services.AddSingleton<DaprEventPublisher>();
+
+// Register Messaging abstraction layer (supports dapr, rabbitmq, servicebus via MESSAGING_PROVIDER config)
+builder.Services.AddMessaging(builder.Configuration);
 
 var app = builder.Build();
 
