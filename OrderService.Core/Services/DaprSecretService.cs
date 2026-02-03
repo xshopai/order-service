@@ -22,66 +22,52 @@ public class DaprSecretService
     }
 
     /// <summary>
-    /// Get a secret value from Dapr Secret Store
+    /// Get a secret value - first checks environment/config, then Dapr Secret Store
+    /// In Azure Container Apps, secrets are injected as env vars at deployment time.
+    /// Dapr secretstore is only used locally with .dapr/secrets.json
     /// </summary>
-    /// <param name="secretName">Name of the secret (e.g., "jwt:secret")</param>
+    /// <param name="secretName">Name of the secret (e.g., "JWT_SECRET")</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Secret value</returns>
     /// <exception cref="InvalidOperationException">Thrown when secret is not found</exception>
     public async Task<string> GetSecretAsync(string secretName, CancellationToken cancellationToken = default)
     {
+        // First, check environment variables / configuration
+        // In Azure Container Apps, secrets are injected as env vars at deployment time
+        var configValue = _configuration[secretName];
+        if (!string.IsNullOrEmpty(configValue))
+        {
+            _logger.LogDebug("Retrieved secret '{SecretName}' from configuration/env var", secretName);
+            return configValue;
+        }
+
+        // Fallback to Dapr Secret Store (used locally with .dapr/secrets.json)
         try
         {
-            _logger.LogDebug("Retrieving secret: {SecretName} from store: {StoreName}", secretName, SecretStoreName);
+            _logger.LogDebug("Retrieving secret: {SecretName} from Dapr store: {StoreName}", secretName, SecretStoreName);
 
-            // With nestedSeparator configured in Dapr, request the full key path directly
-            // Dapr will handle the nested structure and return the specific value
             var secrets = await _daprClient.GetSecretAsync(
                 SecretStoreName,
                 secretName,
                 cancellationToken: cancellationToken);
 
-            if (secrets == null || secrets.Count == 0)
+            if (secrets != null && secrets.Count > 0)
             {
-                var errorMessage = $"Secret '{secretName}' not found in Dapr secret store '{SecretStoreName}'";
-                _logger.LogError(errorMessage);
-                throw new InvalidOperationException(errorMessage);
+                var value = secrets.FirstOrDefault().Value;
+                if (!string.IsNullOrEmpty(value))
+                {
+                    return value;
+                }
             }
-
-            // Dapr returns a dictionary with a single key-value pair for the requested secret
-            var value = secrets.FirstOrDefault().Value;
-            if (string.IsNullOrEmpty(value))
-            {
-                var errorMessage = $"Secret '{secretName}' has no value in Dapr secret store '{SecretStoreName}'";
-                _logger.LogError(errorMessage);
-                throw new InvalidOperationException(errorMessage);
-            }
-
-            return value;
-        }
-        catch (InvalidOperationException)
-        {
-            // Re-throw our custom exceptions
-            throw;
         }
         catch (Exception ex)
         {
-            // Fallback to configuration for design-time scenarios (e.g., EF migrations)
-            _logger.LogWarning(ex, "Failed to retrieve secret '{SecretName}' from Dapr, trying configuration fallback", secretName);
-            
-            var fallbackKey = secretName.Replace(':', '_'); // Convert jwt:secret to jwt_secret
-            var fallbackValue = _configuration[fallbackKey];
-            
-            if (!string.IsNullOrEmpty(fallbackValue))
-            {
-                _logger.LogInformation("Using fallback configuration for secret: {SecretName}", secretName);
-                return fallbackValue;
-            }
-
-            var errorMessage = $"Failed to retrieve secret '{secretName}' from Dapr: {ex.Message}";
-            _logger.LogError(ex, errorMessage);
-            throw new InvalidOperationException(errorMessage, ex);
+            _logger.LogWarning(ex, "Failed to retrieve secret '{SecretName}' from Dapr secret store", secretName);
         }
+
+        var errorMessage = $"Secret '{secretName}' not found in configuration or Dapr secret store";
+        _logger.LogError(errorMessage);
+        throw new InvalidOperationException(errorMessage);
     }
 
     /// <summary>
@@ -89,9 +75,10 @@ public class DaprSecretService
     /// </summary>
     public async Task<(string Secret, string Issuer, string Audience)> GetJwtConfigAsync(CancellationToken cancellationToken = default)
     {
-        var secret = await GetSecretAsync("jwt:secret", cancellationToken);
-        var issuer = await GetSecretAsync("jwt:issuer", cancellationToken);
-        var audience = await GetSecretAsync("jwt:audience", cancellationToken);
+        var secret = await GetSecretAsync("JWT_SECRET", cancellationToken);
+        // Issuer and Audience are typically fixed values, not secrets
+        var issuer = _configuration["Jwt:Issuer"] ?? "auth-service";
+        var audience = _configuration["Jwt:Audience"] ?? "xshopai-platform";
 
         return (secret, issuer, audience);
     }
@@ -101,6 +88,6 @@ public class DaprSecretService
     /// </summary>
     public async Task<string> GetDatabaseConnectionStringAsync(CancellationToken cancellationToken = default)
     {
-        return await GetSecretAsync("database:connectionString", cancellationToken);
+        return await GetSecretAsync("DATABASE_CONNECTION_STRING", cancellationToken);
     }
 }

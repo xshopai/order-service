@@ -8,25 +8,7 @@ spec:
   metadata:
     - name: connectionString
       value: 'amqp://admin:admin123@127.0.0.1:5672'
-    - name: consumerID
-      value: 'order-service'
     - name: durable
       value: 'true'
-    - name: deletedWhenUnused
-      value: 'false'
-    - name: autoAck
-      value: 'false'
     - name: deliveryMode
       value: '2'
-    - name: requeueInFailure
-      value: 'true'
-    - name: prefetchCount
-      value: '10'
-    - name: reconnectWait
-      value: '5'
-    - name: concurrency
-      value: 'parallel'
-    - name: exchangeKind
-      value: 'topic'
-scopes:
-  - order-service
