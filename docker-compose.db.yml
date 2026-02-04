@@ -1,0 +1,38 @@
+# Database-only Docker Compose for local development
+# Use this when running order-service locally with debugger
+#
+# Usage:
+#   docker compose -f docker-compose.db.yml up -d     # Start SQL Server
+#   docker compose -f docker-compose.db.yml down      # Stop SQL Server
+#   docker compose -f docker-compose.db.yml down -v   # Stop and remove volumes
+#
+# Connection String:
+#   Server=localhost,1434;Database=order_service_db;User Id=sa;Password=Admin123!;TrustServerCertificate=True;
+
+services:
+  order-sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: order-sqlserver
+    restart: unless-stopped
+    ports:
+      - "1434:1433"
+    environment:
+      SA_PASSWORD: Admin123!
+      ACCEPT_EULA: Y
+      MSSQL_PID: Developer
+    volumes:
+      - order_sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Admin123! -Q 'SELECT 1' -C || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  order_sqlserver_data:
+    name: order_sqlserver_data

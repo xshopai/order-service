@@ -1,46 +1,19 @@
 #!/bin/bash
-# Order Service - Bash Run Script with Dapr
-# Port: 8006, Dapr HTTP: 3500, Dapr gRPC: 50001
 
-echo ""
-echo "============================================"
-echo "Starting order-service with Dapr..."
-echo "============================================"
-echo ""
+# Order Service - Run with Dapr
 
-# Kill any existing processes on ports
-echo "Cleaning up existing processes..."
-
-# Kill processes on port 8006 (app port)
-lsof -ti:8006 | xargs kill -9 2>/dev/null || true
-
-# Kill processes on port 3500 (Dapr HTTP port)
-lsof -ti:3500 | xargs kill -9 2>/dev/null || true
-
-# Kill processes on port 50001 (Dapr gRPC port)
-lsof -ti:50001 | xargs kill -9 2>/dev/null || true
-
-sleep 2
-
-echo ""
-echo "Starting with Dapr sidecar..."
-echo "App ID: order-service"
-echo "App Port: 8006"
-echo "Dapr HTTP Port: 3500"
-echo "Dapr gRPC Port: 50001"
+echo "Starting Order Service with Dapr..."
+echo "Service will be available at: http://localhost:8006"
+echo "Dapr HTTP endpoint: http://localhost:3506"
+echo "Dapr gRPC endpoint: localhost:50006"
 echo ""
 
 dapr run \
   --app-id order-service \
   --app-port 8006 \
-  --dapr-http-port 3500 \
-  --dapr-grpc-port 50001 \
-  --log-level error \
-  --resources-path ./.dapr/components \
+  --dapr-http-port 3506 \
+  --dapr-grpc-port 50006 \
+  --log-level info \
   --config ./.dapr/config.yaml \
-  -- dotnet run --project OrderService.Api/OrderService.Api.csproj --urls "http://localhost:8006"
-
-echo ""
-echo "============================================"
-echo "Service stopped."
-echo "============================================"
+  --resources-path ./.dapr/components \
+  -- dotnet run --project OrderService.Api/OrderService.Api.csproj --urls "http://localhost:8006" --environment Dapr
