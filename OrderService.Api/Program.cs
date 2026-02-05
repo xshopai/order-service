@@ -11,6 +11,8 @@ using OrderService.Core.Validators;
 using OrderService.Core.Utils;
 using Serilog;
 using Serilog.Events;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 // Configure Serilog with colored console output
 Log.Logger = new LoggerConfiguration()
@@ -99,6 +101,20 @@ builder.Services.AddSingleton<DaprSecretService>();
 
 // Register Messaging abstraction layer (supports dapr, rabbitmq, servicebus via MESSAGING_PROVIDER config)
 builder.Services.AddMessaging(builder.Configuration);
+
+// Configure OpenTelemetry tracing with Zipkin exporter
+var serviceName = Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME") ?? "order-service";
+var zipkinEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_ZIPKIN_ENDPOINT") ?? "http://localhost:9411/api/v2/spans";
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(serviceName))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddZipkinExporter(options =>
+        {
+            options.Endpoint = new Uri(zipkinEndpoint);
+        }));
 
 var app = builder.Build();
 

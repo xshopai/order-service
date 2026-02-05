@@ -31,6 +31,12 @@
     <!-- Dapr -->
     <PackageReference Include="Dapr.AspNetCore" Version="1.14.0" />
     <PackageReference Include="Dapr.Client" Version="1.14.0" />
+    
+    <!-- OpenTelemetry Tracing -->
+    <PackageReference Include="OpenTelemetry.Exporter.Zipkin" Version="1.10.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.10.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.10.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.10.0" />
   </ItemGroup>
 
   <ItemGroup>
