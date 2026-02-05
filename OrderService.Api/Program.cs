@@ -13,6 +13,7 @@ using Serilog;
 using Serilog.Events;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Azure.Monitor.OpenTelemetry.Exporter;
 
 // Configure Serilog with colored console output
 Log.Logger = new LoggerConfiguration()
@@ -102,19 +103,58 @@ builder.Services.AddSingleton<DaprSecretService>();
 // Register Messaging abstraction layer (supports dapr, rabbitmq, servicebus via MESSAGING_PROVIDER config)
 builder.Services.AddMessaging(builder.Configuration);
 
-// Configure OpenTelemetry tracing with Zipkin exporter
+// Configure OpenTelemetry tracing based on OTEL_TRACES_EXPORTER environment variable
+// Supported values: zipkin, otlp, azure, none (default)
 var serviceName = Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME") ?? "order-service";
-var zipkinEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_ZIPKIN_ENDPOINT") ?? "http://localhost:9411/api/v2/spans";
+var tracesExporter = Environment.GetEnvironmentVariable("OTEL_TRACES_EXPORTER")?.ToLower() ?? "none";
 
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource => resource.AddService(serviceName))
-    .WithTracing(tracing => tracing
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddZipkinExporter(options =>
+switch (tracesExporter)
+{
+    case "zipkin":
+        var zipkinEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_ZIPKIN_ENDPOINT") ?? "http://localhost:9411/api/v2/spans";
+        builder.Services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource.AddService(serviceName))
+            .WithTracing(tracing => tracing
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddZipkinExporter(options => options.Endpoint = new Uri(zipkinEndpoint)));
+        Log.Information("✅ Tracing: Zipkin exporter → {Endpoint}", zipkinEndpoint);
+        break;
+
+    case "otlp":
+        var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4318";
+        builder.Services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource.AddService(serviceName))
+            .WithTracing(tracing => tracing
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpoint)));
+        Log.Information("✅ Tracing: OTLP exporter → {Endpoint}", otlpEndpoint);
+        break;
+
+    case "azure":
+        var connectionString = Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
+        if (!string.IsNullOrEmpty(connectionString))
         {
-            options.Endpoint = new Uri(zipkinEndpoint);
-        }));
+            builder.Services.AddOpenTelemetry()
+                .ConfigureResource(resource => resource.AddService(serviceName))
+                .WithTracing(tracing => tracing
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddAzureMonitorTraceExporter(options => options.ConnectionString = connectionString));
+            Log.Information("✅ Tracing: Azure Monitor configured for {ServiceName}", serviceName);
+        }
+        else
+        {
+            Log.Warning("⚠️  Azure exporter selected but APPLICATIONINSIGHTS_CONNECTION_STRING not set");
+        }
+        break;
+
+    case "none":
+    default:
+        Log.Information("ℹ️  Tracing disabled (OTEL_TRACES_EXPORTER={Exporter})", tracesExporter);
+        break;
+}
 
 var app = builder.Build();
 
