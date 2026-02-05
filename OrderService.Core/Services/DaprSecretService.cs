@@ -9,16 +9,32 @@ namespace OrderService.Core.Services;
 /// </summary>
 public class DaprSecretService
 {
-    private readonly DaprClient _daprClient;
+    private readonly DaprClient? _daprClient;
     private readonly ILogger<DaprSecretService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly bool _daprEnabled;
     private const string SecretStoreName = "secretstore";
 
-    public DaprSecretService(DaprClient daprClient, ILogger<DaprSecretService> logger, IConfiguration configuration)
+    public DaprSecretService(DaprClient? daprClient, ILogger<DaprSecretService> logger, IConfiguration configuration)
     {
         _daprClient = daprClient;
         _logger = logger;
         _configuration = configuration;
+        
+        // Check if MESSAGING_PROVIDER is set to something other than dapr
+        var messagingProvider = configuration["MESSAGING_PROVIDER"] 
+            ?? Environment.GetEnvironmentVariable("MESSAGING_PROVIDER")
+            ?? "dapr";
+        _daprEnabled = messagingProvider.Equals("dapr", StringComparison.OrdinalIgnoreCase) && daprClient != null;
+        
+        if (_daprEnabled)
+        {
+            _logger.LogInformation("Dapr Secret Service initialized (Dapr enabled)");
+        }
+        else
+        {
+            _logger.LogInformation("Dapr Secret Service initialized (Dapr disabled - using env vars only)");
+        }
     }
 
     /// <summary>
@@ -42,27 +58,30 @@ public class DaprSecretService
         }
 
         // Fallback to Dapr Secret Store (used locally with .dapr/secrets.json)
-        try
+        if (_daprEnabled && _daprClient != null)
         {
-            _logger.LogDebug("Retrieving secret: {SecretName} from Dapr store: {StoreName}", secretName, SecretStoreName);
-
-            var secrets = await _daprClient.GetSecretAsync(
-                SecretStoreName,
-                secretName,
-                cancellationToken: cancellationToken);
-
-            if (secrets != null && secrets.Count > 0)
+            try
             {
-                var value = secrets.FirstOrDefault().Value;
-                if (!string.IsNullOrEmpty(value))
+                _logger.LogDebug("Retrieving secret: {SecretName} from Dapr store: {StoreName}", secretName, SecretStoreName);
+
+                var secrets = await _daprClient.GetSecretAsync(
+                    SecretStoreName,
+                    secretName,
+                    cancellationToken: cancellationToken);
+
+                if (secrets != null && secrets.Count > 0)
                 {
-                    return value;
+                    var value = secrets.FirstOrDefault().Value;
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        return value;
+                    }
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to retrieve secret '{SecretName}' from Dapr secret store", secretName);
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to retrieve secret '{SecretName}' from Dapr secret store", secretName);
+            }
         }
 
         var errorMessage = $"Secret '{secretName}' not found in configuration or Dapr secret store";
