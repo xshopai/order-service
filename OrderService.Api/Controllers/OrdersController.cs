@@ -17,17 +17,13 @@ public class OrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
     private readonly StandardLogger _logger;
-    private readonly DaprEventPublisher _daprEventPublisher;
 
     public OrdersController(
         IOrderService orderService, 
-        StandardLogger logger,
-        DaprEventPublisher daprEventPublisher)
+        StandardLogger logger)
     {
         _orderService = orderService;
         _logger = logger;
-        _daprEventPublisher = daprEventPublisher;
-        
     }
 
     /// <summary>
