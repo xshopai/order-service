@@ -1,112 +1,67 @@
-using Dapr.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 
 namespace OrderService.Core.Services;
 
 /// <summary>
-/// Service for retrieving secrets from Dapr Secret Store
+/// Service for retrieving secrets from environment variables/configuration
 /// </summary>
 public class DaprSecretService
 {
-    private readonly DaprClient? _daprClient;
     private readonly ILogger<DaprSecretService> _logger;
     private readonly IConfiguration _configuration;
-    private readonly bool _daprEnabled;
-    private const string SecretStoreName = "secretstore";
 
-    public DaprSecretService(DaprClient? daprClient, ILogger<DaprSecretService> logger, IConfiguration configuration)
+    public DaprSecretService(ILogger<DaprSecretService> logger, IConfiguration configuration)
     {
-        _daprClient = daprClient;
         _logger = logger;
         _configuration = configuration;
-        
-        // Check if MESSAGING_PROVIDER is set to something other than dapr
-        var messagingProvider = configuration["MESSAGING_PROVIDER"] 
-            ?? Environment.GetEnvironmentVariable("MESSAGING_PROVIDER")
-            ?? "dapr";
-        _daprEnabled = messagingProvider.Equals("dapr", StringComparison.OrdinalIgnoreCase) && daprClient != null;
-        
-        if (_daprEnabled)
-        {
-            _logger.LogInformation("Dapr Secret Service initialized (Dapr enabled)");
-        }
-        else
-        {
-            _logger.LogInformation("Dapr Secret Service initialized (Dapr disabled - using env vars only)");
-        }
+        _logger.LogInformation("Secret Service initialized (using environment variables)");
     }
 
     /// <summary>
-    /// Get a secret value - first checks environment/config, then Dapr Secret Store
-    /// In Azure Container Apps, secrets are injected as env vars at deployment time.
-    /// Dapr secretstore is only used locally with .dapr/secrets.json
+    /// Get a secret value from environment variables/configuration
     /// </summary>
     /// <param name="secretName">Name of the secret (e.g., "JWT_SECRET")</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Secret value</returns>
     /// <exception cref="InvalidOperationException">Thrown when secret is not found</exception>
-    public async Task<string> GetSecretAsync(string secretName, CancellationToken cancellationToken = default)
+    public Task<string> GetSecretAsync(string secretName, CancellationToken cancellationToken = default)
     {
-        // First, check environment variables / configuration
-        // In Azure Container Apps, secrets are injected as env vars at deployment time
+        // Check environment variables / configuration
         var configValue = _configuration[secretName];
         if (!string.IsNullOrEmpty(configValue))
         {
             _logger.LogDebug("Retrieved secret '{SecretName}' from configuration/env var", secretName);
-            return configValue;
+            return Task.FromResult(configValue);
         }
 
-        // Fallback to Dapr Secret Store (used locally with .dapr/secrets.json)
-        if (_daprEnabled && _daprClient != null)
-        {
-            try
-            {
-                _logger.LogDebug("Retrieving secret: {SecretName} from Dapr store: {StoreName}", secretName, SecretStoreName);
-
-                var secrets = await _daprClient.GetSecretAsync(
-                    SecretStoreName,
-                    secretName,
-                    cancellationToken: cancellationToken);
-
-                if (secrets != null && secrets.Count > 0)
-                {
-                    var value = secrets.FirstOrDefault().Value;
-                    if (!string.IsNullOrEmpty(value))
-                    {
-                        return value;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to retrieve secret '{SecretName}' from Dapr secret store", secretName);
-            }
-        }
-
-        var errorMessage = $"Secret '{secretName}' not found in configuration or Dapr secret store";
+        var errorMessage = $"Secret '{secretName}' not found in configuration/environment variables";
         _logger.LogError(errorMessage);
         throw new InvalidOperationException(errorMessage);
     }
 
     /// <summary>
-    /// Get JWT configuration from secrets
+    /// Get JWT configuration from environment variables
     /// </summary>
-    public async Task<(string Secret, string Issuer, string Audience)> GetJwtConfigAsync(CancellationToken cancellationToken = default)
+    public Task<(string Secret, string Issuer, string Audience)> GetJwtConfigAsync(CancellationToken cancellationToken = default)
     {
-        var secret = await GetSecretAsync("JWT_SECRET", cancellationToken);
-        // Issuer and Audience are typically fixed values, not secrets
+        var secret = _configuration["JWT_SECRET"];
+        if (string.IsNullOrEmpty(secret))
+        {
+            throw new InvalidOperationException("JWT_SECRET not found in configuration/environment variables");
+        }
+        
         var issuer = _configuration["Jwt:Issuer"] ?? "auth-service";
         var audience = _configuration["Jwt:Audience"] ?? "xshopai-platform";
 
-        return (secret, issuer, audience);
+        return Task.FromResult((secret, issuer, audience));
     }
 
     /// <summary>
-    /// Get database connection string from secrets
+    /// Get database connection string from environment variables
     /// </summary>
-    public async Task<string> GetDatabaseConnectionStringAsync(CancellationToken cancellationToken = default)
+    public Task<string> GetDatabaseConnectionStringAsync(CancellationToken cancellationToken = default)
     {
-        return await GetSecretAsync("DATABASE_CONNECTION_STRING", cancellationToken);
+        return GetSecretAsync("DATABASE_CONNECTION_STRING", cancellationToken);
     }
 }

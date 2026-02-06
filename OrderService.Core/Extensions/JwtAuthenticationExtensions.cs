@@ -46,7 +46,7 @@ public static class JwtAuthenticationExtensions
 
                                 if (string.IsNullOrEmpty(secret))
                                 {
-                                    throw new InvalidOperationException("JWT secret not found in Dapr secrets");
+                                    throw new InvalidOperationException("JWT_SECRET not found in environment variables");
                                 }
 
                                 options.TokenValidationParameters = new TokenValidationParameters
@@ -59,36 +59,16 @@ public static class JwtAuthenticationExtensions
                                     ValidateIssuerSigningKey = true,  // Validate signature with secret key
                                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret))
                                 };
+                                
+                                context.HttpContext.RequestServices
+                                    .GetRequiredService<ILogger<JwtBearerEvents>>()
+                                    .LogInformation("JWT configuration loaded from environment variables");
                             }
                             catch (Exception ex)
                             {
-                                // Check if Dapr secret store is not ready (check all levels of inner exceptions)
-                                var currentEx = ex;
-                                bool isDaprNotReady = false;
-                                while (currentEx != null)
-                                {
-                                    if (currentEx.Message?.Contains("secret store is not configured") == true)
-                                    {
-                                        isDaprNotReady = true;
-                                        break;
-                                    }
-                                    currentEx = currentEx.InnerException;
-                                }
-
-                                if (isDaprNotReady)
-                                {
-                                    // Dapr not ready yet - silently skip authentication for this request
-                                    context.HttpContext.RequestServices
-                                        .GetRequiredService<ILogger<JwtBearerEvents>>()
-                                        .LogWarning("Dapr secret store not ready yet, skipping JWT authentication for this request");
-                                    context.NoResult();
-                                    return Task.CompletedTask;
-                                }
-
-                                // Other errors should still fail
                                 context.HttpContext.RequestServices
                                     .GetRequiredService<ILogger<JwtBearerEvents>>()
-                                    .LogError(ex, "Failed to load JWT configuration from Dapr secrets");
+                                    .LogError(ex, "Failed to load JWT configuration from environment variables");
                                 throw;
                             }
                         }
