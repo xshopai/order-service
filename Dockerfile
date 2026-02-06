@@ -73,9 +73,9 @@ RUN groupadd -r orderuser && useradd -r -g orderuser orderuser
 RUN chown -R orderuser:orderuser /src
 USER orderuser
 
-# Health check (using wget which is smaller than curl)
+# Health check (using wget GET request to /health/live)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8006/readiness || exit 1
+    CMD wget -qO- http://localhost:8006/health/live > /dev/null || exit 1
 
 # Expose port
 EXPOSE 8006
@@ -98,9 +98,9 @@ RUN rm -rf /tmp/* /var/tmp/*
 # Switch to non-root user
 USER orderuser
 
-# Health check (using wget which is smaller than curl)
+# Health check (using wget GET request to /health/live)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8006/readiness || exit 1
+    CMD wget -qO- http://localhost:8006/health/live > /dev/null || exit 1
 
 # Expose port
 EXPOSE 8006

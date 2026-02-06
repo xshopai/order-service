@@ -20,29 +20,10 @@ public class OperationalController : ControllerBase
     }
 
     /// <summary>
-    /// Basic health check endpoint
-    /// </summary>
-    /// <route>GET /health</route>
-    [HttpGet("/health")]
-    public ActionResult<object> Health()
-    {
-        _logger.LogDebug("Health check requested");
-        
-        return Ok(new 
-        { 
-            status = "healthy",
-            service = _configuration["ServiceName"] ?? "order-service",
-            timestamp = DateTime.UtcNow,
-            version = _configuration["ServiceVersion"] ?? "1.0.0"
-        });
-    }
-
-    /// <summary>
     /// Readiness probe - check if service is ready to serve traffic
     /// </summary>
     /// <route>GET /health/ready</route>
     [HttpGet("/health/ready")]
-    [HttpGet("/readiness")] // Legacy endpoint for backward compatibility
     public ActionResult<object> Readiness()
     {
         _logger.LogDebug("Readiness check requested");
@@ -85,7 +66,6 @@ public class OperationalController : ControllerBase
     /// </summary>
     /// <route>GET /health/live</route>
     [HttpGet("/health/live")]
-    [HttpGet("/liveness")] // Legacy endpoint for backward compatibility
     public ActionResult<object> Liveness()
     {
         _logger.LogDebug("Liveness check requested");
