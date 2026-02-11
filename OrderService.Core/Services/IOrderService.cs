@@ -57,4 +57,19 @@ public interface IOrderService
     /// Get order statistics for admin dashboard
     /// </summary>
     Task<OrderStatsDto> GetStatsAsync(bool includeRecent = false, int recentLimit = 10);
+
+    /// <summary>
+    /// Cancel an order
+    /// </summary>
+    Task<OrderResponseDto?> CancelOrderAsync(Guid id, CancelOrderDto cancelOrderDto, string correlationId = "");
+
+    /// <summary>
+    /// Update order tracking information
+    /// </summary>
+    Task<OrderResponseDto?> UpdateTrackingAsync(Guid id, UpdateTrackingDto updateTrackingDto, string correlationId = "");
+
+    /// <summary>
+    /// Get order tracking information
+    /// </summary>
+    Task<TrackingInfoDto?> GetTrackingInfoAsync(Guid id);
 }

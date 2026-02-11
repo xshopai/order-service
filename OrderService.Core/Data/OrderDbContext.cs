@@ -11,6 +11,8 @@ namespace OrderService.Core.Data
 
         public DbSet<Order> Orders { get; set; } = null!;
         public DbSet<OrderItem> OrderItems { get; set; } = null!;
+        public DbSet<OrderReturn> OrderReturns { get; set; } = null!;
+        public DbSet<ReturnItem> ReturnItems { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -88,6 +90,77 @@ namespace OrderService.Core.Data
                 entity.HasOne(e => e.Order)
                       .WithMany(o => o.Items)
                       .HasForeignKey(e => e.OrderId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure OrderReturn entity
+            modelBuilder.Entity<OrderReturn>(entity =>
+            {
+                entity.ToTable("OrderReturns");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.ReturnNumber).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.OrderId).IsRequired();
+                entity.Property(e => e.CustomerId).IsRequired();
+                entity.Property(e => e.Status).IsRequired();
+                entity.Property(e => e.Reason).IsRequired();
+                entity.Property(e => e.Description).IsRequired().HasMaxLength(1000);
+                entity.Property(e => e.Currency).HasMaxLength(3);
+                
+                // Configure decimal properties with precision
+                entity.Property(e => e.RefundAmount).HasPrecision(18, 2);
+                entity.Property(e => e.ShippingRefund).HasPrecision(18, 2);
+                entity.Property(e => e.TotalRefund).HasPrecision(18, 2);
+                
+                // Optional fields
+                entity.Property(e => e.RejectionReason).HasMaxLength(500);
+                entity.Property(e => e.InspectionNotes).HasMaxLength(1000);
+                entity.Property(e => e.ReturnShippingCarrier).HasMaxLength(100);
+                entity.Property(e => e.ReturnTrackingNumber).HasMaxLength(100);
+                entity.Property(e => e.ApprovedBy).HasMaxLength(100);
+                entity.Property(e => e.ProcessedBy).HasMaxLength(100);
+                
+                // Add indexes for commonly queried fields
+                entity.HasIndex(e => e.ReturnNumber).IsUnique();
+                entity.HasIndex(e => e.OrderId);
+                entity.HasIndex(e => e.CustomerId);
+                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.CreatedAt);
+                
+                // Configure relationship with Order
+                entity.HasOne(e => e.Order)
+                      .WithMany()
+                      .HasForeignKey(e => e.OrderId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configure ReturnItem entity
+            modelBuilder.Entity<ReturnItem>(entity =>
+            {
+                entity.ToTable("ReturnItems");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.OrderReturnId).IsRequired();
+                entity.Property(e => e.OrderItemId).IsRequired();
+                entity.Property(e => e.ProductId).IsRequired();
+                entity.Property(e => e.ProductName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.QuantityToReturn).IsRequired();
+                
+                // Configure decimal properties with precision
+                entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
+                entity.Property(e => e.RefundAmount).HasPrecision(18, 2);
+                
+                // Optional fields
+                entity.Property(e => e.ProductImageUrl).HasMaxLength(500);
+                entity.Property(e => e.ItemCondition).HasMaxLength(500);
+                
+                // Add indexes
+                entity.HasIndex(e => e.OrderReturnId);
+                entity.HasIndex(e => e.OrderItemId);
+                entity.HasIndex(e => e.ProductId);
+                
+                // Configure relationship with OrderReturn
+                entity.HasOne<OrderReturn>()
+                      .WithMany(r => r.Items)
+                      .HasForeignKey(e => e.OrderReturnId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
         }

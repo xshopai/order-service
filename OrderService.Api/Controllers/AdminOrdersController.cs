@@ -339,6 +339,52 @@ public class AdminOrdersController : ControllerBase
     }
 
     /// <summary>
+    /// Update order tracking information (Admin only)
+    /// </summary>
+    /// <route>PUT /api/admin/orders/{id}/tracking</route>
+    [HttpPut("{id}/tracking")]
+    public async Task<ActionResult<OrderResponseDto>> UpdateTracking(Guid id, [FromBody] UpdateTrackingDto updateTrackingDto)
+    {
+        var correlationId = GetCorrelationId();
+
+        try
+        {
+            var order = await _orderService.UpdateTrackingAsync(id, updateTrackingDto, correlationId);
+
+            if (order == null)
+            {
+                _logger.Warn($"Order with ID {id} not found", correlationId, new {
+                    orderId = id,
+                    endpoint = "PUT /api/admin/orders/{id}/tracking"
+                });
+                return NotFound($"Order with ID {id} not found");
+            }
+
+            _logger.Info("ORDER_TRACKING_UPDATED", correlationId, new {
+                orderId = order.Id,
+                orderNumber = order.OrderNumber,
+                carrier = updateTrackingDto.CarrierName,
+                trackingNumber = updateTrackingDto.TrackingNumber
+            });
+
+            return Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.Warn($"Invalid tracking update: {ex.Message}", correlationId, new {
+                orderId = id,
+                error = ex.Message
+            });
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Error updating tracking for order {id}", ex, correlationId);
+            return StatusCode(500, "An error occurred while updating tracking information");
+        }
+    }
+
+    /// <summary>
     /// Helper method to get correlation ID from context
     /// </summary>
     private string GetCorrelationId()

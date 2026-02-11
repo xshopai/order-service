@@ -89,6 +89,8 @@ builder.Services.AddDbContext<OrderDbContext>((serviceProvider, options) =>
 // Register repositories and services
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService.Core.Services.OrderService>();
+builder.Services.AddScoped<IOrderReturnRepository, OrderReturnRepository>();
+builder.Services.AddScoped<IOrderReturnService, OrderReturnService>();
 
 // Register current user service for JWT authentication
 builder.Services.AddHttpContextAccessor();

@@ -638,4 +638,433 @@ public class OrderService : IOrderService
             }
         };
     }
+
+    /// <summary>
+    /// Cancel an order and trigger saga compensation
+    /// </summary>
+    public async Task<OrderResponseDto?> CancelOrderAsync(Guid id, CancelOrderDto cancelOrderDto, string correlationId = "")
+    {
+        var currentCorrelationId = !string.IsNullOrEmpty(correlationId) ? correlationId : Guid.NewGuid().ToString();
+        var currentUser = _currentUserService.GetUserName() ?? _currentUserService.GetUserId() ?? "System";
+
+        _logger.Info("Cancelling order", currentCorrelationId, new { orderId = id, cancelledBy = currentUser });
+
+        try
+        {
+            var order = await _orderRepository.GetOrderByIdAsync(id);
+            if (order == null)
+            {
+                _logger.Warn($"Order with ID {id} not found", currentCorrelationId, new { orderId = id });
+                return null;
+            }
+
+            // Validate order can be cancelled
+            var validationError = ValidateOrderCancellation(order);
+            if (validationError != null)
+            {
+                _logger.Warn($"Order cancellation validation failed: {validationError}", currentCorrelationId, new {
+                    orderId = id,
+                    orderNumber = order.OrderNumber,
+                    currentStatus = order.Status,
+                    error = validationError
+                });
+                throw new InvalidOperationException(validationError);
+            }
+
+            // Update order status and cancellation details
+            var oldStatus = order.Status;
+            order.Status = OrderStatus.Cancelled;
+            order.CancelledDate = DateTime.UtcNow;
+            order.CancellationReason = cancelOrderDto.CancellationReason;
+            order.CancelledBy = currentUser;
+            order.UpdatedBy = currentUser;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            var cancelledOrder = await _orderRepository.UpdateOrderAsync(order);
+
+            _logger.Info("Order cancelled successfully", currentCorrelationId, new {
+                orderId = id,
+                orderNumber = cancelledOrder.OrderNumber,
+                oldStatus = oldStatus,
+                cancelledBy = currentUser
+            });
+
+            _logger.Business("ORDER_CANCELLED", currentCorrelationId, new {
+                orderId = id,
+                orderNumber = cancelledOrder.OrderNumber,
+                totalAmount = cancelledOrder.TotalAmount,
+                reason = cancelOrderDto.CancellationReason
+            });
+
+            // Publish order.cancelled event for saga compensation
+            try
+            {
+                var orderCancelledEvent = MapToOrderCancelledEvent(cancelledOrder, currentCorrelationId, currentUser);
+                await _messagingProvider.PublishEventAsync(
+                    "order.cancelled",
+                    orderCancelledEvent,
+                    currentCorrelationId);
+
+                _logger.Info("Published order.cancelled event", currentCorrelationId, new {
+                    orderNumber = cancelledOrder.OrderNumber,
+                    requiresPaymentRefund = orderCancelledEvent.RequiresPaymentRefund,
+                    requiresInventoryRelease = orderCancelledEvent.RequiresInventoryRelease
+                });
+            }
+            catch (Exception eventEx)
+            {
+                // Log error but don't fail the cancellation (event will be retried)
+                _logger.Error("Failed to publish order.cancelled event", eventEx, currentCorrelationId, new {
+                    orderNumber = cancelledOrder.OrderNumber,
+                    error = eventEx.Message
+                });
+            }
+
+            return MapToOrderResponseDto(cancelledOrder);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Failed to cancel order {id}", ex, currentCorrelationId, new { orderId = id });
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Validate if an order can be cancelled
+    /// </summary>
+    private static string? ValidateOrderCancellation(Order order)
+    {
+        // Already cancelled
+        if (order.Status == OrderStatus.Cancelled)
+        {
+            return "Order is already cancelled";
+        }
+
+        // Already refunded
+        if (order.Status == OrderStatus.Refunded)
+        {
+            return "Order has already been refunded and cannot be cancelled";
+        }
+
+        // Already delivered (should use return/refund process instead)
+        if (order.Status == OrderStatus.Delivered)
+        {
+            return "Order has already been delivered. Please use the return process instead";
+        }
+
+        // Shipped orders can still be cancelled but may incur return shipping costs
+        // Business rule: Allow cancellation at any stage before delivery
+        return null;
+    }
+
+    /// <summary>
+    /// Map Order entity to OrderCancelledEvent for saga compensation
+    /// </summary>
+    private static OrderCancelledEvent MapToOrderCancelledEvent(Order order, string correlationId, string cancelledBy)
+    {
+        return new OrderCancelledEvent
+        {
+            OrderId = order.Id,
+            CorrelationId = correlationId,
+            CustomerId = order.CustomerId,
+            OrderNumber = order.OrderNumber,
+            CancellationReason = order.CancellationReason ?? "No reason provided",
+            CancelledBy = cancelledBy,
+            CancelledAt = order.CancelledDate ?? DateTime.UtcNow,
+            TotalAmount = order.TotalAmount,
+            Currency = order.Currency,
+            PaymentTransactionId = order.PaymentTransactionId,
+            PaymentProvider = order.PaymentProvider,
+            Items = order.Items.Select(item => new OrderItemEvent
+            {
+                ProductId = item.ProductId,
+                ProductName = item.ProductName,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                TotalPrice = item.TotalPrice
+            }).ToList(),
+            // Determine if compensation is needed based on order state
+            RequiresPaymentRefund = !string.IsNullOrEmpty(order.PaymentTransactionId) && 
+                                   order.PaymentStatus != PaymentStatus.Failed &&
+                                   order.PaymentStatus != PaymentStatus.Cancelled,
+            RequiresInventoryRelease = order.Status == OrderStatus.Processing || 
+                                      order.Status == OrderStatus.Confirmed ||
+                                      order.Status == OrderStatus.Shipped
+        };
+    }
+
+    /// <summary>
+    /// Update order tracking information and publish tracking event
+    /// </summary>
+    public async Task<OrderResponseDto?> UpdateTrackingAsync(Guid id, UpdateTrackingDto updateTrackingDto, string correlationId = "")
+    {
+        var currentCorrelationId = !string.IsNullOrEmpty(correlationId) ? correlationId : Guid.NewGuid().ToString();
+        var currentUser = _currentUserService.GetUserName() ?? _currentUserService.GetUserId() ?? "System";
+
+        _logger.Info("Updating order tracking", currentCorrelationId, new {
+            orderId = id,
+            carrier = updateTrackingDto.CarrierName,
+            trackingNumber = updateTrackingDto.TrackingNumber,
+            updatedBy = currentUser
+        });
+
+        try
+        {
+            var order = await _orderRepository.GetOrderByIdAsync(id);
+            if (order == null)
+            {
+                _logger.Warn($"Order with ID {id} not found", currentCorrelationId, new { orderId = id });
+                return null;
+            }
+
+            // Validate order can be tracked (not cancelled)
+            if (order.Status == OrderStatus.Cancelled)
+            {
+                _logger.Warn("Cannot update tracking for cancelled order", currentCorrelationId, new {
+                    orderId = id,
+                    orderNumber = order.OrderNumber
+                });
+                throw new InvalidOperationException("Cannot update tracking information for cancelled orders");
+            }
+
+            // Update tracking information
+            order.CarrierName = updateTrackingDto.CarrierName;
+            order.TrackingNumber = updateTrackingDto.TrackingNumber;
+            order.ShippedDate = DateTime.UtcNow;
+            order.EstimatedDeliveryDate = updateTrackingDto.EstimatedDeliveryDate;
+            order.UpdatedBy = currentUser;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            // Update shipping status to Shipped if not already
+            if (order.ShippingStatus != ShippingStatus.Shipped && order.ShippingStatus != ShippingStatus.Delivered)
+            {
+                order.ShippingStatus = ShippingStatus.Shipped;
+            }
+
+            // Update order status to Shipped if it was processing
+            if (order.Status == OrderStatus.Processing || order.Status == OrderStatus.Confirmed)
+            {
+                order.Status = OrderStatus.Shipped;
+            }
+
+            var updatedOrder = await _orderRepository.UpdateOrderAsync(order);
+
+            _logger.Info("Order tracking updated successfully", currentCorrelationId, new {
+                orderId = id,
+                orderNumber = updatedOrder.OrderNumber,
+                carrier = updatedOrder.CarrierName,
+                trackingNumber = updatedOrder.TrackingNumber
+            });
+
+            _logger.Business("ORDER_SHIPPED", currentCorrelationId, new {
+                orderId = id,
+                orderNumber = updatedOrder.OrderNumber,
+                carrier = updatedOrder.CarrierName,
+                estimatedDelivery = updatedOrder.EstimatedDeliveryDate
+            });
+
+            // Publish order.shipped event for notifications and analytics
+            try
+            {
+                var orderShippedEvent = MapToOrderShippedEvent(updatedOrder, currentCorrelationId);
+                await _messagingProvider.PublishEventAsync(
+                    "order.shipped",
+                    orderShippedEvent,
+                    currentCorrelationId);
+
+                _logger.Info("Published order.shipped event", currentCorrelationId, new {
+                    orderNumber = updatedOrder.OrderNumber,
+                    trackingNumber = updatedOrder.TrackingNumber
+                });
+            }
+            catch (Exception eventEx)
+            {
+                // Log error but don't fail the tracking update
+                _logger.Error("Failed to publish order.shipped event", eventEx, currentCorrelationId, new {
+                    orderNumber = updatedOrder.OrderNumber,
+                    error = eventEx.Message
+                });
+            }
+
+            return MapToOrderResponseDto(updatedOrder);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Failed to update tracking for order {id}", ex, currentCorrelationId, new { orderId = id });
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get order tracking information with timeline
+    /// </summary>
+    public async Task<TrackingInfoDto?> GetTrackingInfoAsync(Guid id)
+    {
+        _logger.Info($"Getting tracking info for order: {id}", null, new { orderId = id });
+
+        try
+        {
+            var order = await _orderRepository.GetOrderByIdAsync(id);
+            if (order == null)
+            {
+                _logger.Warn($"Order with ID {id} not found", null, new { orderId = id });
+                return null;
+            }
+
+            // Build tracking timeline from order history
+            var timeline = BuildTrackingTimeline(order);
+
+            var trackingInfo = new TrackingInfoDto
+            {
+                CarrierName = order.CarrierName,
+                TrackingNumber = order.TrackingNumber,
+                TrackingUrl = order.TrackingNumber != null && order.CarrierName != null
+                    ? GenerateTrackingUrl(order.CarrierName, order.TrackingNumber)
+                    : null,
+                ShippedDate = order.ShippedDate,
+                EstimatedDeliveryDate = order.EstimatedDeliveryDate,
+                DeliveredDate = order.DeliveredDate,
+                ShippingStatus = order.ShippingStatus.ToString(),
+                Timeline = timeline
+            };
+
+            return trackingInfo;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Failed to get tracking info for order {id}", ex, null, new { orderId = id });
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Build tracking timeline from order status history
+    /// </summary>
+    private static List<TrackingEventDto> BuildTrackingTimeline(Order order)
+    {
+        var timeline = new List<TrackingEventDto>();
+
+        // Order Created
+        timeline.Add(new TrackingEventDto
+        {
+            Status = "Created",
+            Description = "Order placed successfully",
+            Timestamp = order.CreatedAt,
+            IsCompleted = true
+        });
+
+        // Order Confirmed
+        if (order.Status != OrderStatus.Created)
+        {
+            timeline.Add(new TrackingEventDto
+            {
+                Status = "Confirmed",
+                Description = "Order confirmed and being prepared",
+                Timestamp = order.UpdatedAt,
+                IsCompleted = order.Status != OrderStatus.Created
+            });
+        }
+
+        // Order Shipped
+        if (order.ShippedDate.HasValue)
+        {
+            timeline.Add(new TrackingEventDto
+            {
+                Status = "Shipped",
+                Description = $"Package shipped with {order.CarrierName}",
+                Timestamp = order.ShippedDate.Value,
+                IsCompleted = true
+            });
+        }
+
+        // Estimated Delivery
+        if (order.EstimatedDeliveryDate.HasValue)
+        {
+            timeline.Add(new TrackingEventDto
+            {
+                Status = "In Transit",
+                Description = "Package is on the way",
+                Timestamp = order.EstimatedDeliveryDate.Value.AddDays(-1),
+                IsCompleted = order.DeliveredDate.HasValue
+            });
+        }
+
+        // Order Delivered
+        if (order.DeliveredDate.HasValue)
+        {
+            timeline.Add(new TrackingEventDto
+            {
+                Status = "Delivered",
+                Description = "Package delivered successfully",
+                Timestamp = order.DeliveredDate.Value,
+                IsCompleted = true
+            });
+        }
+        else if (order.EstimatedDeliveryDate.HasValue)
+        {
+            // Add expected delivery as pending
+            timeline.Add(new TrackingEventDto
+            {
+                Status = "Out for Delivery",
+                Description = "Expected delivery",
+                Timestamp = order.EstimatedDeliveryDate.Value,
+                IsCompleted = false
+            });
+        }
+
+        return timeline.OrderBy(t => t.Timestamp).ToList();
+    }
+
+    /// <summary>
+    /// Generate tracking URL based on carrier
+    /// </summary>
+    private static string? GenerateTrackingUrl(string carrierName, string trackingNumber)
+    {
+        return carrierName.ToLower() switch
+        {
+            "ups" => $"https://www.ups.com/track?tracknum={trackingNumber}",
+            "fedex" => $"https://www.fedex.com/fedextrack/?tracknumbers={trackingNumber}",
+            "usps" => $"https://tools.usps.com/go/TrackConfirmAction?tLabels={trackingNumber}",
+            "dhl" => $"https://www.dhl.com/en/express/tracking.html?AWB={trackingNumber}",
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Map Order entity to OrderShippedEvent for notifications
+    /// </summary>
+    private static OrderShippedEvent MapToOrderShippedEvent(Order order, string correlationId)
+    {
+        return new OrderShippedEvent
+        {
+            OrderId = order.Id,
+            CorrelationId = correlationId,
+            CustomerId = order.CustomerId,
+            OrderNumber = order.OrderNumber,
+            CustomerEmail = order.CustomerEmail,
+            CustomerName = order.CustomerName,
+            CarrierName = order.CarrierName ?? string.Empty,
+            TrackingNumber = order.TrackingNumber ?? string.Empty,
+            TrackingUrl = GenerateTrackingUrl(order.CarrierName ?? "", order.TrackingNumber ?? ""),
+            ShippedDate = order.ShippedDate ?? DateTime.UtcNow,
+            EstimatedDeliveryDate = order.EstimatedDeliveryDate,
+            Items = order.Items.Select(item => new OrderItemEvent
+            {
+                ProductId = item.ProductId,
+                ProductName = item.ProductName,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                TotalPrice = item.TotalPrice
+            }).ToList(),
+            ShippingAddress = new AddressEvent
+            {
+                AddressLine1 = order.ShippingAddress.AddressLine1,
+                AddressLine2 = order.ShippingAddress.AddressLine2,
+                City = order.ShippingAddress.City,
+                State = order.ShippingAddress.State,
+                ZipCode = order.ShippingAddress.ZipCode,
+                Country = order.ShippingAddress.Country
+            }
+        };
+    }
 }

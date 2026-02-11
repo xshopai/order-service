@@ -185,6 +185,129 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>
+    /// Cancel an order (Customer can cancel own orders, Admin can cancel any)
+    /// </summary>
+    /// <route>POST /api/orders/{id}/cancel</route>
+    [HttpPost("{id}/cancel")]
+    [Authorize(Policy = "CustomerOrAdmin")]
+    public async Task<ActionResult<OrderResponseDto>> CancelOrder(Guid id, [FromBody] CancelOrderDto cancelOrderDto)
+    {
+        var correlationId = GetCorrelationId();
+        var currentUserId = GetCurrentUserId();
+        var isAdmin = IsCurrentUserAdmin();
+
+        try
+        {
+            // First, get the order to check ownership
+            var existingOrder = await _orderService.GetOrderByIdAsync(id);
+
+            if (existingOrder == null)
+            {
+                _logger.Warn($"Order with ID {id} not found", correlationId, new {
+                    orderId = id,
+                    endpoint = "POST /api/orders/{id}/cancel"
+                });
+                return NotFound(new { message = $"Order with ID {id} not found" });
+            }
+
+            // Check if customer is trying to cancel their own order
+            if (!isAdmin && currentUserId != existingOrder.CustomerId)
+            {
+                _logger.Info("UNAUTHORIZED_ORDER_CANCEL_ATTEMPT", correlationId, new {
+                    orderId = id,
+                    requestedBy = currentUserId,
+                    orderOwner = existingOrder.CustomerId,
+                    endpoint = "POST /api/orders/{id}/cancel"
+                });
+                return StatusCode(403, new { message = "You can only cancel your own orders" });
+            }
+
+            var cancelledOrder = await _orderService.CancelOrderAsync(id, cancelOrderDto, correlationId);
+
+            if (cancelledOrder == null)
+            {
+                return NotFound(new { message = $"Order with ID {id} not found" });
+            }
+
+            _logger.Info("ORDER_CANCELLED", correlationId, new {
+                orderId = id,
+                orderNumber = cancelledOrder.OrderNumber,
+                cancelledBy = currentUserId,
+                reason = cancelOrderDto.CancellationReason
+            });
+
+            return Ok(cancelledOrder);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Validation errors (e.g., order already cancelled, delivered)
+            _logger.Warn($"Order cancellation validation failed: {ex.Message}", correlationId, new {
+                orderId = id,
+                error = ex.Message
+            });
+            return StatusCode(400, new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Error cancelling order {id}", ex, correlationId);
+            return StatusCode(500, new { message = "An error occurred while cancelling the order" });
+        }
+    }
+
+    /// <summary>
+    /// Get order tracking information (Customer or Admin)
+    /// </summary>
+    /// <route>GET /api/orders/{id}/tracking</route>
+    [HttpGet("{id}/tracking")]
+    [Authorize(Policy = "CustomerOrAdmin")]
+    public async Task<ActionResult<TrackingInfoDto>> GetOrderTracking(Guid id)
+    {
+        var correlationId = GetCorrelationId();
+        var currentUserId = GetCurrentUserId();
+        var isAdmin = IsCurrentUserAdmin();
+
+        try
+        {
+            // First, get the order to check ownership
+            var order = await _orderService.GetOrderByIdAsync(id);
+
+            if (order == null)
+            {
+                _logger.Warn($"Order with ID {id} not found", correlationId, new {
+                    orderId = id,
+                    endpoint = "GET /api/orders/{id}/tracking"
+                });
+                return NotFound(new { message = $"Order with ID {id} not found" });
+            }
+
+            // Check if customer is trying to access their own order tracking
+            if (!isAdmin && currentUserId != order.CustomerId)
+            {
+                _logger.Info("UNAUTHORIZED_TRACKING_ACCESS_ATTEMPT", correlationId, new {
+                    orderId = id,
+                    requestedBy = currentUserId,
+                    orderOwner = order.CustomerId
+                });
+                return StatusCode(403, new { message = "You can only view tracking for your own orders" });
+            }
+
+            var trackingInfo = await _orderService.GetTrackingInfoAsync(id);
+
+            if (trackingInfo == null)
+            {
+                return NotFound(new { message = $"Tracking information not found for order {id}" });
+            }
+
+            return Ok(trackingInfo);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Error fetching tracking info for order {id}", ex, correlationId);
+            return StatusCode(500, new { message = "An error occurred while fetching tracking information" });
+        }
+    }
+
+    /// <summary>
     /// Helper method to get correlation ID from context
     /// </summary>
     private string GetCorrelationId()
