@@ -196,7 +196,7 @@ public class OrderReturnService : IOrderReturnService
             var (isEligible, reason) = await IsOrderEligibleForReturnAsync(createReturnDto.OrderId);
             if (!isEligible)
             {
-                _logger.Warn($"Order not eligible for return: {reason}", null, currentCorrelationId, 
+                _logger.Warn($"Order not eligible for return: {reason}", currentCorrelationId, 
                     new { orderId = createReturnDto.OrderId, reason });
                 throw new InvalidOperationException($"Order is not eligible for return: {reason}");
             }
@@ -288,7 +288,7 @@ public class OrderReturnService : IOrderReturnService
             var orderReturn = await _returnRepository.GetReturnByIdAsync(id);
             if (orderReturn == null)
             {
-                _logger.Warn($"Return not found: {id}", null, currentCorrelationId, new { returnId = id });
+                _logger.Warn($"Return not found: {id}", currentCorrelationId, new { returnId = id });
                 return null;
             }
 
@@ -411,7 +411,7 @@ public class OrderReturnService : IOrderReturnService
         }
 
         // Check if order is delivered
-        if (order.OrderStatus != OrderStatus.Delivered)
+        if (order.Status != OrderStatus.Delivered)
         {
             return (false, "Order must be delivered before requesting a return");
         }
@@ -501,7 +501,7 @@ public class OrderReturnService : IOrderReturnService
         
         if (totalReturnQuantity == totalOrderedQuantity)
         {
-            shippingRefund = order.ShippingCost ?? 0;
+            shippingRefund = order.ShippingCost;
         }
 
         decimal totalRefund = refundAmount + shippingRefund;
@@ -647,8 +647,8 @@ public class OrderReturnService : IOrderReturnService
             OrderNumber = orderReturn.Order?.OrderNumber ?? string.Empty,
             CustomerId = orderReturn.CustomerId,
             ReturnNumber = orderReturn.ReturnNumber,
-            Status = orderReturn.Status,
-            Reason = orderReturn.Reason,
+            Status = orderReturn.Status.ToString(),
+            Reason = orderReturn.Reason.ToString(),
             Description = orderReturn.Description,
             Items = orderReturn.Items.Select(i => new ReturnItemResponseDto
             {

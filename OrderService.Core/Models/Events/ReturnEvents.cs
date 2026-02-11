@@ -43,7 +43,7 @@ public class ReturnStatusChangedEvent
 /// </summary>
 public class ReturnItemEvent
 {
-    public Guid ProductId { get; set; }
+    public string ProductId { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public int QuantityToReturn { get; set; }
     public decimal RefundAmount { get; set; }

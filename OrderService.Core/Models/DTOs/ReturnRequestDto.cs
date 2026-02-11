@@ -47,18 +47,28 @@ public class ReturnResponseDto
     public Guid Id { get; set; }
     public Guid OrderId { get; set; }
     public string OrderNumber { get; set; } = string.Empty;
+    public string CustomerId { get; set; } = string.Empty;
     public string ReturnNumber { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string Reason { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public List<ReturnItemResponseDto> Items { get; set; } = new();
+    public decimal RefundAmount { get; set; }
+    public decimal ShippingRefund { get; set; }
     public decimal TotalRefund { get; set; }
     public string Currency { get; set; } = "USD";
+    public string? ReturnShippingCarrier { get; set; }
     public string? ReturnTrackingNumber { get; set; }
+    public DateTime? ItemsReceivedDate { get; set; }
     public string? RejectionReason { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public string? InspectionNotes { get; set; }
     public DateTime? ApprovedDate { get; set; }
+    public string? ApprovedBy { get; set; }
     public DateTime? CompletedDate { get; set; }
+    public DateTime? RefundProcessedDate { get; set; }
+    public string? ProcessedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }
 
 /// <summary>
@@ -70,6 +80,7 @@ public class ReturnItemResponseDto
     public string ProductId { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public int QuantityToReturn { get; set; }
+    public decimal UnitPrice { get; set; }
     public decimal RefundAmount { get; set; }
     public string? ProductImageUrl { get; set; }
     public string? ItemCondition { get; set; }
