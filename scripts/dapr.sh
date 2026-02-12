@@ -8,6 +8,17 @@ echo "Dapr HTTP endpoint: http://localhost:3506"
 echo "Dapr gRPC endpoint: localhost:50006"
 echo ""
 
+# Navigate to service root directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$SERVICE_DIR"
+
+# Copy appsettings.Dapr.json to appsettings.json for Dapr mode
+if [ -f "OrderService.Api/appsettings.Dapr.json" ]; then
+    cp "OrderService.Api/appsettings.Dapr.json" "OrderService.Api/appsettings.json"
+    echo "✅ Copied appsettings.Dapr.json → appsettings.json"
+fi
+
 # Kill any processes using required ports (prevents "address already in use" errors)
 for PORT in 8006 3506 50006; do
     for pid in $(netstat -ano 2>/dev/null | grep ":$PORT" | grep LISTENING | awk '{print $5}' | sort -u); do
@@ -24,4 +35,4 @@ dapr run \
   --log-level info \
   --config ./.dapr/config.yaml \
   --resources-path ./.dapr/components \
-  -- dotnet run --project OrderService.Api/OrderService.Api.csproj --urls "http://localhost:8006" --environment Dapr
+  -- dotnet run --project OrderService.Api/OrderService.Api.csproj --urls "http://localhost:8006"

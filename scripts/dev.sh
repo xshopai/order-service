@@ -18,7 +18,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$SERVICE_DIR"
 
-# Run with .NET using Development configuration (appsettings.Development.json)
-export ASPNETCORE_ENVIRONMENT=Development
+# Copy appsettings.Development.json to appsettings.json for local development
+if [ -f "OrderService.Api/appsettings.Development.json" ]; then
+    cp "OrderService.Api/appsettings.Development.json" "OrderService.Api/appsettings.json"
+    echo "✅ Copied appsettings.Development.json → appsettings.json"
+fi
+
+# Run with .NET
 export ASPNETCORE_URLS=http://+:8006
 dotnet run --project OrderService.Api/OrderService.Api.csproj --no-launch-profile

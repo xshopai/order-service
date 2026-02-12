@@ -40,14 +40,15 @@ public class DaprSecretService
     }
 
     /// <summary>
-    /// Get JWT configuration from environment variables
+    /// Get JWT configuration from environment variables or hierarchical config
     /// </summary>
     public Task<(string Secret, string Issuer, string Audience)> GetJwtConfigAsync(CancellationToken cancellationToken = default)
     {
-        var secret = _configuration["JWT_SECRET"];
+        // Check flat key first (env var style), then hierarchical (.NET standard)
+        var secret = _configuration["JWT_SECRET"] ?? _configuration["Jwt:Secret"];
         if (string.IsNullOrEmpty(secret))
         {
-            throw new InvalidOperationException("JWT_SECRET not found in configuration/environment variables");
+            throw new InvalidOperationException("JWT secret not found. Set JWT_SECRET or Jwt:Secret in configuration.");
         }
         
         var issuer = _configuration["Jwt:Issuer"] ?? "auth-service";
