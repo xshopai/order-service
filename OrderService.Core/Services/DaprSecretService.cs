@@ -15,7 +15,6 @@ public class DaprSecretService
     {
         _logger = logger;
         _configuration = configuration;
-        _logger.LogInformation("Secret Service initialized (using environment variables)");
     }
 
     /// <summary>

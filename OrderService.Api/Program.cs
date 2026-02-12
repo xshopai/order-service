@@ -105,15 +105,19 @@ builder.Services.AddSingleton<DaprSecretService>();
 // Register Messaging abstraction layer (supports dapr, rabbitmq, servicebus via MESSAGING_PROVIDER config)
 builder.Services.AddMessaging(builder.Configuration);
 
-// Configure OpenTelemetry tracing based on OTEL_TRACES_EXPORTER environment variable
+// Configure OpenTelemetry tracing based on environment variable or config
 // Supported values: zipkin, otlp, azure, none (default)
 var serviceName = Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME") ?? "order-service";
-var tracesExporter = Environment.GetEnvironmentVariable("OTEL_TRACES_EXPORTER")?.ToLower() ?? "none";
+var tracesExporter = Environment.GetEnvironmentVariable("OTEL_TRACES_EXPORTER")?.ToLower() 
+    ?? builder.Configuration["Tracing:Exporter"]?.ToLower() 
+    ?? "none";
 
 switch (tracesExporter)
 {
     case "zipkin":
-        var zipkinEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_ZIPKIN_ENDPOINT") ?? "http://localhost:9411/api/v2/spans";
+        var zipkinEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_ZIPKIN_ENDPOINT") 
+            ?? builder.Configuration["Tracing:ZipkinEndpoint"] 
+            ?? "http://localhost:9411/api/v2/spans";
         builder.Services.AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService(serviceName))
             .WithTracing(tracing => tracing
@@ -124,7 +128,9 @@ switch (tracesExporter)
         break;
 
     case "otlp":
-        var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4318";
+        var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") 
+            ?? builder.Configuration["Tracing:OtlpEndpoint"] 
+            ?? "http://localhost:4318";
         builder.Services.AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService(serviceName))
             .WithTracing(tracing => tracing
@@ -220,7 +226,9 @@ app.MapControllers();
 
 try
 {
-    Log.Information("Starting Order Service API with Dapr integration");
+    var env = builder.Environment.EnvironmentName;
+    var messagingProvider = builder.Configuration["MESSAGING_PROVIDER"] ?? "dapr";
+    Log.Information("Starting Order Service API (Environment: {Environment}, Messaging: {MessagingProvider})", env, messagingProvider);
     app.Run();
 }
 catch (Exception ex)
