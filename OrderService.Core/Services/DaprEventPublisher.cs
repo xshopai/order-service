@@ -25,7 +25,7 @@ public class DaprEventPublisher
     /// Publishes an event using Dapr pub/sub
     /// </summary>
     /// <typeparam name="T">Message payload type</typeparam>
-    /// <param name="routingKey">Topic/routing key (e.g., "order.created")</param>
+    /// <param name="routingKey">Topic/routing key (e.g., "order.placed")</param>
     /// <param name="message">Message payload</param>
     /// <param name="cancellationToken">Cancellation token</param>
     public async Task PublishEventAsync<T>(
