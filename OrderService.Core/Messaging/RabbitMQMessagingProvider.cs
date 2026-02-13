@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
 
@@ -16,9 +17,9 @@ public class RabbitMQMessagingProvider : IMessagingProvider
     private bool _disposed;
 
     // RabbitMQ connection objects (lazy initialized)
-    // Using RabbitMQ.Client package types when available
-    private object? _connection;
-    private object? _channel;
+    private IConnection? _connection;
+    private IChannel? _channel;
+    private readonly SemaphoreSlim _connectionLock = new(1, 1);
 
     public string ProviderName => "rabbitmq";
 
@@ -30,6 +31,45 @@ public class RabbitMQMessagingProvider : IMessagingProvider
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
         _exchangeName = exchangeName;
+    }
+
+    private async Task<IChannel> GetChannelAsync(CancellationToken cancellationToken)
+    {
+        if (_channel != null && _channel.IsOpen)
+            return _channel;
+
+        await _connectionLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_channel != null && _channel.IsOpen)
+                return _channel;
+
+            var factory = new ConnectionFactory
+            {
+                Uri = new Uri(_connectionString)
+            };
+
+            _connection = await factory.CreateConnectionAsync(cancellationToken);
+            _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+            // Declare the exchange (topic type for routing key based routing)
+            await _channel.ExchangeDeclareAsync(
+                exchange: _exchangeName,
+                type: ExchangeType.Topic,
+                durable: true,
+                autoDelete: false,
+                cancellationToken: cancellationToken);
+
+            _logger.LogInformation(
+                "RabbitMQ connection established: Exchange={Exchange}",
+                _exchangeName);
+
+            return _channel;
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
     }
 
     public async Task<bool> PublishEventAsync(
@@ -64,6 +104,8 @@ public class RabbitMQMessagingProvider : IMessagingProvider
                 topic,
                 correlationId ?? "N/A");
 
+            var channel = await GetChannelAsync(cancellationToken);
+
             // Serialize the message
             var messageBody = JsonSerializer.SerializeToUtf8Bytes(eventData, new JsonSerializerOptions
             {
@@ -71,32 +113,32 @@ public class RabbitMQMessagingProvider : IMessagingProvider
                 WriteIndented = false
             });
 
-            // TODO: Implement actual RabbitMQ publishing when RabbitMQ.Client package is added
-            // For now, this is a placeholder that logs the operation
-            // 
-            // Implementation would look like:
-            // using var connection = factory.CreateConnection();
-            // using var channel = connection.CreateModel();
-            // var properties = channel.CreateBasicProperties();
-            // properties.Persistent = true;
-            // properties.CorrelationId = correlationId ?? Guid.NewGuid().ToString();
-            // properties.ContentType = "application/json";
-            // channel.BasicPublish(_exchangeName, topic, properties, messageBody);
+            // Set message properties
+            var properties = new BasicProperties
+            {
+                Persistent = true,
+                CorrelationId = correlationId ?? Guid.NewGuid().ToString(),
+                ContentType = "application/json",
+                Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
+                AppId = "order-service"
+            };
 
-            _logger.LogWarning(
-                "RabbitMQ direct publishing not yet implemented. Add RabbitMQ.Client package and implement connection. Topic={Topic}",
-                topic);
-
-            await Task.CompletedTask;
+            // Publish to exchange with topic as routing key
+            await channel.BasicPublishAsync(
+                exchange: _exchangeName,
+                routingKey: topic,
+                mandatory: false,
+                basicProperties: properties,
+                body: messageBody,
+                cancellationToken: cancellationToken);
 
             _logger.LogInformation(
-                "Would publish event via RabbitMQ: Topic={Topic}, CorrelationId={CorrelationId}, Size={Size} bytes",
+                "Successfully published event via RabbitMQ: Topic={Topic}, CorrelationId={CorrelationId}, Size={Size} bytes",
                 topic,
                 correlationId ?? "N/A",
                 messageBody.Length);
 
-            // Return false until properly implemented
-            return false;
+            return true;
         }
         catch (Exception ex)
         {
@@ -109,12 +151,18 @@ public class RabbitMQMessagingProvider : IMessagingProvider
         }
     }
 
-    public Task<bool> IsHealthyAsync(CancellationToken cancellationToken = default)
+    public async Task<bool> IsHealthyAsync(CancellationToken cancellationToken = default)
     {
-        // TODO: Implement actual health check when RabbitMQ.Client is added
-        // Check if connection is open and channel is available
-        _logger.LogWarning("RabbitMQ health check not implemented - returning false");
-        return Task.FromResult(false);
+        try
+        {
+            var channel = await GetChannelAsync(cancellationToken);
+            return channel.IsOpen;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "RabbitMQ health check failed");
+            return false;
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -123,9 +171,16 @@ public class RabbitMQMessagingProvider : IMessagingProvider
 
         try
         {
-            // TODO: Close RabbitMQ connection and channel when implemented
-            // _channel?.Close();
-            // _connection?.Close();
+            if (_channel != null)
+            {
+                await _channel.CloseAsync();
+                _channel.Dispose();
+            }
+            if (_connection != null)
+            {
+                await _connection.CloseAsync();
+                _connection.Dispose();
+            }
             
             _logger.LogInformation("RabbitMQ messaging provider disposed");
         }
@@ -135,6 +190,5 @@ public class RabbitMQMessagingProvider : IMessagingProvider
         }
 
         _disposed = true;
-        await Task.CompletedTask;
     }
 }

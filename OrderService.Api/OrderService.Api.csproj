@@ -33,7 +33,7 @@
     <PackageReference Include="Dapr.Client" Version="1.14.0" />
     
     <!-- RabbitMQ -->
-    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.2.0" />
     
     <!-- OpenTelemetry Tracing -->
     <PackageReference Include="OpenTelemetry.Exporter.Zipkin" Version="1.10.0" />

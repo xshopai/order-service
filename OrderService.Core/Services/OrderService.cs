@@ -221,18 +221,18 @@ public class OrderService : IOrderService
                 totalAmount = createdOrder.TotalAmount
             });
 
-            // Publish order created event for loose coupling
+            // Publish order placed event for loose coupling
             try
             {
                 var orderCreatedEvent = MapToOrderCreatedEvent(createdOrder, currentCorrelationId);
                 await _messagingProvider.PublishEventAsync(
-                    "order.created", 
+                    "order.placed", 
                     orderCreatedEvent,
                     currentCorrelationId);
                 
-                _logger.Info("Published OrderCreated event", currentCorrelationId, new {
+                _logger.Info("Published OrderPlaced event", currentCorrelationId, new {
                     orderNumber = createdOrder.OrderNumber,
-                    eventType = "ORDER_CREATED_EVENT_PUBLISHED"
+                    eventType = "ORDER_PLACED_EVENT_PUBLISHED"
                 });
             }
             catch (Exception eventEx)
@@ -606,6 +606,7 @@ public class OrderService : IOrderService
             OrderId = order.Id,
             CorrelationId = correlationId,
             CustomerId = order.CustomerId,
+            CustomerEmail = order.CustomerEmail,
             OrderNumber = order.OrderNumber,
             TotalAmount = order.TotalAmount,
             Currency = order.Currency,
