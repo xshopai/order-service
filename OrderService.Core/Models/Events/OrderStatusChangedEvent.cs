@@ -22,6 +22,11 @@ public class OrderStatusChangedEvent
     public string CustomerId { get; set; } = string.Empty;
 
     /// <summary>
+    /// Customer email address for notifications
+    /// </summary>
+    public string CustomerEmail { get; set; } = string.Empty;
+
+    /// <summary>
     /// Previous order status
     /// </summary>
     public string PreviousStatus { get; set; } = string.Empty;

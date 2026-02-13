@@ -214,6 +214,7 @@ public class AdminOrdersController : ControllerBase
                     OrderId = order.Id.ToString(),
                     OrderNumber = order.OrderNumber,
                     CustomerId = order.CustomerId,
+                    CustomerEmail = order.CustomerEmail,
                     PreviousStatus = updateStatusDto.Status.ToString(),
                     NewStatus = updateStatusDto.Status.ToString(),
                     UpdatedAt = DateTime.UtcNow,
@@ -223,10 +224,10 @@ public class AdminOrdersController : ControllerBase
 
                 string topicName = updateStatusDto.Status switch
                 {
-                    OrderStatus.Cancelled => "order-cancelled",
-                    OrderStatus.Shipped => "order-shipped",
-                    OrderStatus.Delivered => "order-delivered",
-                    _ => "order-updated"
+                    OrderStatus.Cancelled => "order.cancelled",
+                    OrderStatus.Shipped => "order.shipped",
+                    OrderStatus.Delivered => "order.delivered",
+                    _ => "order.status.changed"
                 };
 
                 await _messagingProvider.PublishEventAsync(topicName, orderEvent, correlationId);
