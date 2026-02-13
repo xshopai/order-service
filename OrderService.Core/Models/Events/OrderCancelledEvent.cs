@@ -8,6 +8,7 @@ public class OrderCancelledEvent
     public Guid OrderId { get; set; }
     public string CorrelationId { get; set; } = string.Empty;
     public string CustomerId { get; set; } = string.Empty;
+    public string CustomerEmail { get; set; } = string.Empty;
     public string OrderNumber { get; set; } = string.Empty;
     public string CancellationReason { get; set; } = string.Empty;
     public string CancelledBy { get; set; } = string.Empty;

@@ -768,6 +768,7 @@ public class OrderService : IOrderService
             OrderId = order.Id,
             CorrelationId = correlationId,
             CustomerId = order.CustomerId,
+            CustomerEmail = order.CustomerEmail,
             OrderNumber = order.OrderNumber,
             CancellationReason = order.CancellationReason ?? "No reason provided",
             CancelledBy = cancelledBy,
