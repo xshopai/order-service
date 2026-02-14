@@ -261,7 +261,9 @@ public class OrderService : IOrderService
     public async Task<OrderResponseDto?> UpdateOrderStatusAsync(Guid id, UpdateOrderStatusDto updateStatusDto)
     {
         var currentUser = _currentUserService.GetUserName() ?? _currentUserService.GetUserId() ?? "System";
-        _logger.Info("Updating order status", null, new {
+        var correlationId = Guid.NewGuid().ToString();
+        
+        _logger.Info("Updating order status", correlationId, new {
             orderId = id,
             newStatus = updateStatusDto.Status,
             updatedBy = currentUser
@@ -272,7 +274,7 @@ public class OrderService : IOrderService
             var order = await _orderRepository.GetOrderByIdAsync(id);
             if (order == null)
             {
-                _logger.Warn($"Order with ID {id} not found", null, new { orderId = id });
+                _logger.Warn($"Order with ID {id} not found", correlationId, new { orderId = id });
                 return null;
             }
 
@@ -280,10 +282,16 @@ public class OrderService : IOrderService
             order.Status = updateStatusDto.Status;
             order.UpdatedBy = currentUser;
             order.UpdatedAt = DateTime.UtcNow;
+            
+            // Set DeliveredDate when status changes to Delivered
+            if (updateStatusDto.Status == OrderStatus.Delivered && !order.DeliveredDate.HasValue)
+            {
+                order.DeliveredDate = DateTime.UtcNow;
+            }
 
             var updatedOrder = await _orderRepository.UpdateOrderAsync(order);
 
-            _logger.Info("Order status updated", null, new {
+            _logger.Info("Order status updated", correlationId, new {
                 orderId = id,
                 orderNumber = updatedOrder.OrderNumber,
                 oldStatus = oldStatus,
@@ -291,18 +299,45 @@ public class OrderService : IOrderService
                 updatedBy = currentUser
             });
 
-            _logger.Business("ORDER_STATUS_UPDATED", null, new {
+            _logger.Business("ORDER_STATUS_UPDATED", correlationId, new {
                 orderId = id,
                 orderNumber = updatedOrder.OrderNumber,
                 oldStatus = oldStatus,
                 newStatus = updatedOrder.Status
             });
 
+            // Publish order.completed event when status changes to Delivered
+            // This triggers inventory deduction in inventory-service
+            if (updateStatusDto.Status == OrderStatus.Delivered && oldStatus != OrderStatus.Delivered)
+            {
+                try
+                {
+                    var orderCompletedEvent = MapToOrderCompletedEvent(updatedOrder, correlationId);
+                    await _messagingProvider.PublishEventAsync(
+                        "order.completed",
+                        orderCompletedEvent,
+                        correlationId);
+
+                    _logger.Info("Published order.completed event", correlationId, new {
+                        orderNumber = updatedOrder.OrderNumber,
+                        itemCount = updatedOrder.Items.Count
+                    });
+                }
+                catch (Exception eventEx)
+                {
+                    // Log error but don't fail the status update
+                    _logger.Error("Failed to publish order.completed event", eventEx, correlationId, new {
+                        orderNumber = updatedOrder.OrderNumber,
+                        error = eventEx.Message
+                    });
+                }
+            }
+
             return MapToOrderResponseDto(updatedOrder);
         }
         catch (Exception ex)
         {
-            _logger.Error($"Failed to update order status for {id}", ex, null, new {
+            _logger.Error($"Failed to update order status for {id}", ex, correlationId, new {
                 orderId = id,
                 newStatus = updateStatusDto.Status
             });
@@ -615,6 +650,7 @@ public class OrderService : IOrderService
             {
                 ProductId = item.ProductId,
                 ProductName = item.ProductName,
+                Sku = item.ProductSku ?? item.ProductId, // Use SKU if available, fallback to ProductId
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TotalPrice = item.TotalPrice
@@ -1067,6 +1103,27 @@ public class OrderService : IOrderService
                 ZipCode = order.ShippingAddress.ZipCode,
                 Country = order.ShippingAddress.Country
             }
+        };
+    }
+
+    /// <summary>
+    /// Map Order entity to OrderCompletedEvent for inventory deduction
+    /// </summary>
+    private static OrderCompletedEvent MapToOrderCompletedEvent(Order order, string correlationId)
+    {
+        return new OrderCompletedEvent
+        {
+            OrderId = order.Id,
+            CorrelationId = correlationId,
+            OrderNumber = order.OrderNumber,
+            CustomerId = order.CustomerId,
+            CompletedAt = order.DeliveredDate ?? DateTime.UtcNow,
+            Items = order.Items.Select(item => new CompletedOrderItem
+            {
+                Sku = item.ProductSku ?? item.ProductId, // Use SKU if available, fallback to ProductId
+                ProductId = item.ProductId,
+                Quantity = item.Quantity
+            }).ToList()
         };
     }
 }
