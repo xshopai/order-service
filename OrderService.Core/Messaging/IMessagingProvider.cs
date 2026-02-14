@@ -14,7 +14,7 @@ public interface IMessagingProvider : IAsyncDisposable
     /// <summary>
     /// Publishes an event to the specified topic.
     /// </summary>
-    /// <param name="topic">The topic/routing key to publish to (e.g., "order.placed")</param>
+    /// <param name="topic">The topic/routing key to publish to (e.g., "order.created")</param>
     /// <param name="eventData">The event payload to publish</param>
     /// <param name="correlationId">Optional correlation ID for distributed tracing</param>
     /// <param name="cancellationToken">Cancellation token</param>

@@ -226,13 +226,13 @@ public class OrderService : IOrderService
             {
                 var orderCreatedEvent = MapToOrderCreatedEvent(createdOrder, currentCorrelationId);
                 await _messagingProvider.PublishEventAsync(
-                    "order.placed", 
+                    "order.created", 
                     orderCreatedEvent,
                     currentCorrelationId);
                 
-                _logger.Info("Published OrderPlaced event", currentCorrelationId, new {
+                _logger.Info("Published OrderCreated event", currentCorrelationId, new {
                     orderNumber = createdOrder.OrderNumber,
-                    eventType = "ORDER_PLACED_EVENT_PUBLISHED"
+                    eventType = "ORDER_CREATED_EVENT_PUBLISHED"
                 });
             }
             catch (Exception eventEx)
