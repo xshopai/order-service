@@ -1126,4 +1126,119 @@ public class OrderService : IOrderService
             }).ToList()
         };
     }
+
+    /// <summary>
+    /// Validate if a user made a purchase of a product
+    /// Used by review-service for verified purchase validation
+    /// </summary>
+    public async Task<ValidatePurchaseResponseDto> ValidatePurchaseAsync(ValidatePurchaseRequestDto request, string correlationId = "")
+    {
+        _logger.Info("Validating purchase", correlationId, new {
+            operation = "VALIDATE_PURCHASE",
+            userId = request.UserId,
+            productId = request.ProductId,
+            orderReference = request.OrderReference
+        });
+
+        try
+        {
+            // Get all orders for the customer
+            var customerOrders = await _orderRepository.GetOrdersByCustomerIdAsync(request.UserId);
+            
+            // Filter only completed orders (Delivered status)
+            var completedOrders = customerOrders
+                .Where(o => o.Status == OrderStatus.Delivered)
+                .OrderByDescending(o => o.DeliveredDate);
+
+            // If order reference is provided, validate against that specific order
+            if (!string.IsNullOrEmpty(request.OrderReference))
+            {
+                var specificOrder = completedOrders.FirstOrDefault(o => 
+                    o.OrderNumber == request.OrderReference || 
+                    o.Id.ToString() == request.OrderReference);
+
+                if (specificOrder != null)
+                {
+                    var hasProduct = specificOrder.Items.Any(item =>
+                        item.ProductId == request.ProductId ||
+                        item.ProductSku == request.ProductId);
+
+                    if (hasProduct)
+                    {
+                        _logger.Info("Purchase validated successfully", correlationId, new {
+                            orderId = specificOrder.Id,
+                            orderNumber = specificOrder.OrderNumber
+                        });
+
+                        return new ValidatePurchaseResponseDto
+                        {
+                            IsValid = true,
+                            OrderId = specificOrder.Id,
+                            OrderNumber = specificOrder.OrderNumber,
+                            PurchaseDate = specificOrder.DeliveredDate ?? specificOrder.CreatedAt,
+                            Message = "Purchase verified"
+                        };
+                    }
+                }
+
+                _logger.Info("Purchase validation failed - product not in specified order", correlationId, new {
+                    orderReference = request.OrderReference,
+                    productId = request.ProductId
+                });
+
+                return new ValidatePurchaseResponseDto
+                {
+                    IsValid = false,
+                    Message = "Product not found in specified order"
+                };
+            }
+
+            // Find any completed order containing the product
+            var matchingOrder = completedOrders.FirstOrDefault(o =>
+                o.Items.Any(item =>
+                    item.ProductId == request.ProductId ||
+                    item.ProductSku == request.ProductId));
+
+            if (matchingOrder != null)
+            {
+                _logger.Info("Purchase validated successfully", correlationId, new {
+                    orderId = matchingOrder.Id,
+                    orderNumber = matchingOrder.OrderNumber
+                });
+
+                return new ValidatePurchaseResponseDto
+                {
+                    IsValid = true,
+                    OrderId = matchingOrder.Id,
+                    OrderNumber = matchingOrder.OrderNumber,
+                    PurchaseDate = matchingOrder.DeliveredDate ?? matchingOrder.CreatedAt,
+                    Message = "Purchase verified"
+                };
+            }
+
+            _logger.Info("Purchase validation failed - no purchase found", correlationId, new {
+                userId = request.UserId,
+                productId = request.ProductId
+            });
+
+            return new ValidatePurchaseResponseDto
+            {
+                IsValid = false,
+                Message = "No verified purchase found for this product"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Failed to validate purchase", ex, correlationId, new {
+                userId = request.UserId,
+                productId = request.ProductId
+            });
+
+            return new ValidatePurchaseResponseDto
+            {
+                IsValid = false,
+                Message = "Error validating purchase"
+            };
+        }
+    }
 }

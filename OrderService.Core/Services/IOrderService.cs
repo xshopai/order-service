@@ -72,4 +72,10 @@ public interface IOrderService
     /// Get order tracking information
     /// </summary>
     Task<TrackingInfoDto?> GetTrackingInfoAsync(Guid id);
+
+    /// <summary>
+    /// Validate if a user made a purchase of a product
+    /// Used by review-service for verified purchase validation
+    /// </summary>
+    Task<ValidatePurchaseResponseDto> ValidatePurchaseAsync(ValidatePurchaseRequestDto request, string correlationId = "");
 }
