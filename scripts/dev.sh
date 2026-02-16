@@ -24,6 +24,6 @@ if [ -f "OrderService.Api/appsettings.Development.json" ]; then
     echo "✅ Copied appsettings.Development.json → appsettings.json"
 fi
 
-# Run with .NET
+# Run with .NET (hot reload enabled)
 export ASPNETCORE_URLS=http://+:8006
-dotnet run --project OrderService.Api/OrderService.Api.csproj --no-launch-profile
+dotnet watch run --project OrderService.Api/OrderService.Api.csproj --no-launch-profile

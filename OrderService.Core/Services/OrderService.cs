@@ -162,6 +162,7 @@ public class OrderService : IOrderService
                     ProductId = itemDto.ProductId,
                     ProductName = itemDto.ProductName,
                     ProductImageUrl = itemDto.ProductImageUrl,
+                    ProductSku = itemDto.Sku, // Map SKU for inventory tracking
                     UnitPrice = itemDto.UnitPrice,
                     Quantity = itemDto.Quantity,
                     TotalPrice = itemDto.UnitPrice * itemDto.Quantity,
