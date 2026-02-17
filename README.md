@@ -13,6 +13,7 @@ Order management microservice for xshopai - handles order creation, status track
 ### Setup
 
 **1. Start PostgreSQL**
+
 ```bash
 # Using Docker (recommended)
 docker run -d --name order-postgres -p 5432:5432 \
@@ -24,6 +25,7 @@ docker run -d --name order-postgres -p 5432:5432 \
 ```
 
 **2. Clone & Restore**
+
 ```bash
 git clone https://github.com/xshopai/order-service.git
 cd order-service
@@ -31,6 +33,7 @@ dotnet restore
 ```
 
 **3. Configure Environment**
+
 ```bash
 # Copy environment template
 cp .env.example .env
@@ -41,6 +44,7 @@ cp .env.example .env
 ```
 
 **4. Apply Migrations**
+
 ```bash
 # Create database
 createdb orderservice_dev
@@ -50,6 +54,7 @@ dotnet ef database update
 ```
 
 **5. Run Service**
+
 ```bash
 # Start with Dapr (recommended)
 ./run.sh       # Linux/Mac
@@ -60,6 +65,7 @@ dotnet run
 ```
 
 **6. Verify**
+
 ```bash
 # Check health
 curl http://localhost:7000/health
@@ -89,12 +95,12 @@ dotnet run --configuration Release
 
 ## 📚 Documentation
 
-| Document | Description |
-|----------|-------------|
+| Document                                      | Description                             |
+| --------------------------------------------- | --------------------------------------- |
 | [📖 Developer Guide](docs/DEVELOPER_GUIDE.md) | Local setup, debugging, daily workflows |
-| [📘 Technical Reference](docs/TECHNICAL.md) | Architecture, security, monitoring |
-| [🤝 Contributing](docs/CONTRIBUTING.md) | Contribution guidelines and workflow |
-| [📝 API Testing Guide](API_TESTING.md) | Complete API testing examples |
+| [📘 Technical Reference](docs/TECHNICAL.md)   | Architecture, security, monitoring      |
+| [🤝 Contributing](docs/CONTRIBUTING.md)       | Contribution guidelines and workflow    |
+| [📝 API Testing Guide](API_TESTING.md)        | Complete API testing examples           |
 
 **API Documentation**: Swagger UI available at `/swagger` endpoint.
 
@@ -106,10 +112,9 @@ The Order Service uses a **single-process architecture** with an embedded event 
 
 **OrderService.Api** (REST API + Consumer)
 
-- **Publishes events** via HTTP to `message-broker-service` (for OrderCreated, OrderCancelled, etc.)
-- **Consumes events** directly from message broker (RabbitMQ, Kafka, or Azure Service Bus)
-- Uses environment variables: `MESSAGE_BROKER_SERVICE_URL` (default: http://localhost:4000)
-- Configuration: `MessageBroker` section in appsettings.json
+- **Publishes events** via Dapr Pub/Sub (for OrderCreated, OrderCancelled, etc.)
+- **Consumes events** via Dapr Pub/Sub subscriptions (RabbitMQ, Kafka, or Azure Service Bus)
+- Configuration: `Dapr` section and `.dapr/components/` for pub/sub settings
 
 **Why Single Process?**
 

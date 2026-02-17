@@ -79,7 +79,7 @@ builder.Services.AddOrderServiceAuthorization();
 // Add Entity Framework with SQL Server - Lazy load connection string from Dapr secrets
 builder.Services.AddDbContext<OrderDbContext>((serviceProvider, options) =>
 {
-    var secretService = serviceProvider.GetRequiredService<DaprSecretService>();
+    var secretService = serviceProvider.GetRequiredService<ConfigurationService>();
     var connectionString = secretService.GetDatabaseConnectionStringAsync().GetAwaiter().GetResult();
     options.UseSqlServer(
         connectionString,
@@ -99,8 +99,8 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 // Register StandardLogger
 builder.Services.AddSingleton<StandardLogger>();
 
-// Register Dapr services
-builder.Services.AddSingleton<DaprSecretService>();
+// Register ConfigurationService for reading secrets from env vars/config
+builder.Services.AddSingleton<ConfigurationService>();
 
 // Register Messaging abstraction layer (supports dapr, rabbitmq, servicebus via MESSAGING_PROVIDER config)
 builder.Services.AddMessaging(builder.Configuration);

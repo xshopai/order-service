@@ -4,14 +4,14 @@ using Microsoft.Extensions.Configuration;
 namespace OrderService.Core.Services;
 
 /// <summary>
-/// Service for retrieving secrets from environment variables/configuration
+/// Service for retrieving secrets/configuration from environment variables and configuration files
 /// </summary>
-public class DaprSecretService
+public class ConfigurationService
 {
-    private readonly ILogger<DaprSecretService> _logger;
+    private readonly ILogger<ConfigurationService> _logger;
     private readonly IConfiguration _configuration;
 
-    public DaprSecretService(ILogger<DaprSecretService> logger, IConfiguration configuration)
+    public ConfigurationService(ILogger<ConfigurationService> logger, IConfiguration configuration)
     {
         _logger = logger;
         _configuration = configuration;

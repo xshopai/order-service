@@ -41,7 +41,7 @@ public static class JwtAuthenticationExtensions
                         {
                             try
                             {
-                                var secretService = context.HttpContext.RequestServices.GetRequiredService<DaprSecretService>();
+                                var secretService = context.HttpContext.RequestServices.GetRequiredService<ConfigurationService>();
                                 var (secret, issuer, audience) = secretService.GetJwtConfigAsync().GetAwaiter().GetResult();
 
                                 if (string.IsNullOrEmpty(secret))
