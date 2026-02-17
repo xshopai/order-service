@@ -292,12 +292,24 @@ public class OrderService : IOrderService
             else if (updateStatusDto.Status == OrderStatus.Cancelled)
             {
                 order.PaymentStatus = PaymentStatus.Cancelled;
+                if (!order.CancelledDate.HasValue)
+                {
+                    order.CancelledDate = DateTime.UtcNow;
+                }
+            }
+
+            // Set ShippedDate when status changes to Shipped
+            if (updateStatusDto.Status == OrderStatus.Shipped && !order.ShippedDate.HasValue)
+            {
+                order.ShippedDate = DateTime.UtcNow;
+                order.ShippingStatus = ShippingStatus.Shipped;
             }
 
             // Set DeliveredDate when status changes to Delivered
             if (updateStatusDto.Status == OrderStatus.Delivered && !order.DeliveredDate.HasValue)
             {
                 order.DeliveredDate = DateTime.UtcNow;
+                order.ShippingStatus = ShippingStatus.Delivered;
             }
 
             var updatedOrder = await _orderRepository.UpdateOrderAsync(order);
@@ -993,7 +1005,7 @@ public class OrderService : IOrderService
     {
         var timeline = new List<TrackingEventDto>();
 
-        // Order Created
+        // Order Created - always shown
         timeline.Add(new TrackingEventDto
         {
             Status = "Created",
@@ -1002,15 +1014,27 @@ public class OrderService : IOrderService
             IsCompleted = true
         });
 
-        // Order Confirmed
-        if (order.Status != OrderStatus.Created)
+        // Order Confirmed - shown when status >= Confirmed
+        if (order.Status >= OrderStatus.Confirmed && order.Status != OrderStatus.Cancelled)
         {
             timeline.Add(new TrackingEventDto
             {
                 Status = "Confirmed",
-                Description = "Order confirmed and being prepared",
-                Timestamp = order.UpdatedAt,
-                IsCompleted = order.Status != OrderStatus.Created
+                Description = "Order confirmed and payment verified",
+                Timestamp = order.UpdatedAt > order.CreatedAt ? order.CreatedAt.AddSeconds(1) : order.UpdatedAt,
+                IsCompleted = true
+            });
+        }
+
+        // Order Processing - shown when status >= Processing
+        if (order.Status >= OrderStatus.Processing && order.Status != OrderStatus.Cancelled)
+        {
+            timeline.Add(new TrackingEventDto
+            {
+                Status = "Processing",
+                Description = "Order is being prepared for shipment",
+                Timestamp = order.ShippedDate?.AddMinutes(-30) ?? order.UpdatedAt,
+                IsCompleted = true
             });
         }
 
@@ -1020,21 +1044,34 @@ public class OrderService : IOrderService
             timeline.Add(new TrackingEventDto
             {
                 Status = "Shipped",
-                Description = $"Package shipped with {order.CarrierName}",
+                Description = string.IsNullOrEmpty(order.CarrierName) 
+                    ? "Package has been shipped" 
+                    : $"Package shipped with {order.CarrierName}",
                 Timestamp = order.ShippedDate.Value,
                 IsCompleted = true
             });
         }
+        else if (order.Status == OrderStatus.Shipped)
+        {
+            // Fallback if ShippedDate not set but status is Shipped
+            timeline.Add(new TrackingEventDto
+            {
+                Status = "Shipped",
+                Description = "Package has been shipped",
+                Timestamp = order.UpdatedAt,
+                IsCompleted = true
+            });
+        }
 
-        // Estimated Delivery
-        if (order.EstimatedDeliveryDate.HasValue)
+        // In Transit - shown when shipped and has estimated delivery
+        if (order.ShippedDate.HasValue && order.EstimatedDeliveryDate.HasValue && !order.DeliveredDate.HasValue)
         {
             timeline.Add(new TrackingEventDto
             {
                 Status = "In Transit",
                 Description = "Package is on the way",
-                Timestamp = order.EstimatedDeliveryDate.Value.AddDays(-1),
-                IsCompleted = order.DeliveredDate.HasValue
+                Timestamp = order.ShippedDate.Value.AddHours(12),
+                IsCompleted = false
             });
         }
 
@@ -1049,15 +1086,41 @@ public class OrderService : IOrderService
                 IsCompleted = true
             });
         }
-        else if (order.EstimatedDeliveryDate.HasValue)
+        else if (order.EstimatedDeliveryDate.HasValue && order.ShippedDate.HasValue)
         {
             // Add expected delivery as pending
             timeline.Add(new TrackingEventDto
             {
                 Status = "Out for Delivery",
-                Description = "Expected delivery",
+                Description = $"Expected delivery by {order.EstimatedDeliveryDate.Value:MMM dd, yyyy}",
                 Timestamp = order.EstimatedDeliveryDate.Value,
                 IsCompleted = false
+            });
+        }
+
+        // Order Cancelled
+        if (order.Status == OrderStatus.Cancelled)
+        {
+            timeline.Add(new TrackingEventDto
+            {
+                Status = "Cancelled",
+                Description = string.IsNullOrEmpty(order.CancellationReason) 
+                    ? "Order has been cancelled" 
+                    : $"Order cancelled: {order.CancellationReason}",
+                Timestamp = order.CancelledDate ?? order.UpdatedAt,
+                IsCompleted = true
+            });
+        }
+
+        // Order Refunded
+        if (order.Status == OrderStatus.Refunded)
+        {
+            timeline.Add(new TrackingEventDto
+            {
+                Status = "Refunded",
+                Description = "Order has been refunded",
+                Timestamp = order.UpdatedAt,
+                IsCompleted = true
             });
         }
 

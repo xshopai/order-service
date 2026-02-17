@@ -340,6 +340,43 @@ public class AdminOrdersController : ControllerBase
     }
 
     /// <summary>
+    /// Get order tracking information with timeline (Admin only)
+    /// </summary>
+    /// <route>GET /api/admin/orders/{id}/tracking</route>
+    [HttpGet("{id}/tracking")]
+    public async Task<ActionResult<TrackingInfoDto>> GetTracking(Guid id)
+    {
+        var correlationId = GetCorrelationId();
+
+        try
+        {
+            var trackingInfo = await _orderService.GetTrackingInfoAsync(id);
+
+            if (trackingInfo == null)
+            {
+                _logger.Warn($"Order with ID {id} not found", correlationId, new {
+                    orderId = id,
+                    endpoint = "GET /api/admin/orders/{id}/tracking"
+                });
+                return NotFound($"Order with ID {id} not found");
+            }
+
+            _logger.Info("Retrieved order tracking info", correlationId, new {
+                orderId = id,
+                shippingStatus = trackingInfo.ShippingStatus,
+                timelineEvents = trackingInfo.Timeline.Count
+            });
+
+            return Ok(trackingInfo);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Error fetching tracking info for order {id}", ex, correlationId);
+            return StatusCode(500, "An error occurred while fetching tracking information");
+        }
+    }
+
+    /// <summary>
     /// Update order tracking information (Admin only)
     /// </summary>
     /// <route>PUT /api/admin/orders/{id}/tracking</route>
