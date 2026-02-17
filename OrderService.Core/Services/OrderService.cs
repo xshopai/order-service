@@ -284,6 +284,16 @@ public class OrderService : IOrderService
             order.UpdatedBy = currentUser;
             order.UpdatedAt = DateTime.UtcNow;
             
+            // Update PaymentStatus based on order status transition
+            if (updateStatusDto.Status == OrderStatus.Confirmed && order.PaymentStatus == PaymentStatus.Pending)
+            {
+                order.PaymentStatus = PaymentStatus.Captured;
+            }
+            else if (updateStatusDto.Status == OrderStatus.Cancelled)
+            {
+                order.PaymentStatus = PaymentStatus.Cancelled;
+            }
+
             // Set DeliveredDate when status changes to Delivered
             if (updateStatusDto.Status == OrderStatus.Delivered && !order.DeliveredDate.HasValue)
             {
