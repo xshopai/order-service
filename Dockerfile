@@ -100,13 +100,13 @@ USER orderuser
 
 # Health check (using wget GET request to /health/live)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget -qO- http://localhost:8006/health/live > /dev/null || exit 1
+    CMD wget -qO- http://localhost:8080/health/live > /dev/null || exit 1
 
 # Expose port
-EXPOSE 8006
+EXPOSE 8080
 
 # Configure ASP.NET Core
-ENV ASPNETCORE_URLS=http://+:8006
+ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 # Entry point
