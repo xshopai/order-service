@@ -224,9 +224,11 @@ public class AdminOrdersController : ControllerBase
 
                 string topicName = updateStatusDto.Status switch
                 {
-                    OrderStatus.Cancelled => "order.cancelled",
+                    OrderStatus.Confirmed => "order.confirmed",
                     OrderStatus.Shipped => "order.shipped",
                     OrderStatus.Delivered => "order.delivered",
+                    OrderStatus.Cancelled => "order.cancelled",
+                    OrderStatus.Refunded => "order.refunded",
                     _ => "order.status.changed"
                 };
 
