@@ -25,5 +25,6 @@ if [ -f "OrderService.Api/appsettings.Http.json" ]; then
 fi
 
 # Run with .NET (hot reload enabled)
+export ASPNETCORE_ENVIRONMENT=Development
 export ASPNETCORE_URLS=http://+:8006
 dotnet watch run --project OrderService.Api/OrderService.Api.csproj --no-launch-profile
