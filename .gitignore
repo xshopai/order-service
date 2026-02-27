@@ -408,3 +408,6 @@ FodyWeavers.xsd
 # Dapr secrets (IMPORTANT - do not commit!)
 # .dapr/secrets.json
 # .dapr/secrets*.json
+
+# Runtime config — generated from appsettings.Http.json or appsettings.Dapr.json at startup
+OrderService.Api/appsettings.Development.json
