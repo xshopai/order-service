@@ -105,6 +105,9 @@ builder.Services.AddSingleton<ConfigurationService>();
 // Register Messaging abstraction layer (supports dapr, rabbitmq, servicebus via MESSAGING_PROVIDER config)
 builder.Services.AddMessaging(builder.Configuration);
 
+// Register Consul self-registration (registers on startup, deregisters on shutdown)
+builder.Services.AddHostedService<OrderService.Api.ConsulRegistrationService>();
+
 // Configure OpenTelemetry tracing based on environment variable or config
 // Supported values: zipkin, otlp, azure, none (default)
 var serviceName = Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME") ?? "order-service";
