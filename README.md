@@ -1,395 +1,385 @@
-# 📭 Order Service
+<div align="center">
 
-Order management microservice for xshopai - handles order creation, status tracking, order history, and embedded event consumer for status updates from saga orchestrator.
+# 📦 Order Service
 
-## 🚀 Quick Start
+**Enterprise-grade order management microservice for the xshopai e-commerce platform**
 
-### Prerequisites
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com)
+[![C#](https://img.shields.io/badge/C%23-12-239120?style=for-the-badge&logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
+[![SQL Server](https://img.shields.io/badge/SQL_Server-2022-CC2927?style=for-the-badge&logo=microsoftsqlserver&logoColor=white)](https://www.microsoft.com/sql-server)
+[![Dapr](https://img.shields.io/badge/Dapr-Enabled-0D597F?style=for-the-badge&logo=dapr&logoColor=white)](https://dapr.io)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-- **.NET 8 SDK** ([Download](https://dotnet.microsoft.com/download/dotnet/8.0))
-- **PostgreSQL** 12+ ([Download](https://www.postgresql.org/download/))
-- **Dapr CLI** 1.16+ ([Install Guide](https://docs.dapr.io/getting-started/install-dapr-cli/))
+[Getting Started](#-getting-started) •
+[Documentation](#-documentation) •
+[API Reference](#-api-reference) •
+[Contributing](#-contributing)
 
-### Setup
+</div>
 
-**1. Start PostgreSQL**
+---
 
-```bash
-# Using Docker (recommended)
-docker run -d --name order-postgres -p 5432:5432 \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=orderservice_dev \
-  postgres:12
+## 🎯 Overview
 
-# Or install PostgreSQL locally
+The **Order Service** handles order creation, status tracking, order history, and embeds an event consumer for status updates from the saga orchestrator. Built with a **single-process architecture** following industry best practices (Amazon, Netflix pattern), it provides REST APIs plus a background consumer — all in one deployment for optimal resource sharing and zero version skew.
+
+---
+
+## ✨ Key Features
+
+<table>
+<tr>
+<td width="50%">
+
+### 📦 Order Management
+
+- Complete order CRUD operations
+- Paginated order listing & search
+- Customer order history tracking
+- Order status lifecycle management
+
+</td>
+<td width="50%">
+
+### 🔄 Embedded Event Consumer
+
+- Single-process API + consumer architecture
+- Subscribes to `order.status.changed` events
+- Multi-broker support (RabbitMQ, Kafka, Azure Service Bus)
+- Broker-agnostic via `IMessageBrokerAdapter`
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 📡 Event-Driven Architecture
+
+- CloudEvents 1.0 specification
+- Publishes OrderCreated, OrderCancelled events
+- Consumes saga orchestrator status updates
+- Cross-service synchronization
+
+</td>
+<td width="50%">
+
+### 🛡️ Enterprise Security
+
+- JWT Bearer token authentication
+- Role-based access control (customer, admin)
+- FluentValidation input validation
+- SQL injection protection via EF Core
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🏗️ Architecture
+
+**Single-Process Pattern (API + Embedded Consumer):**
+
 ```
-
-**2. Clone & Restore**
-
-```bash
-git clone https://github.com/xshopai/order-service.git
-cd order-service
-dotnet restore
+REST API ─────────────┐
+                      ├── Shared IOrderService ── SQL Server
+Background Consumer ──┘
 ```
-
-**3. Configure Environment**
-
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env - update these values:
-# ConnectionStrings__DefaultConnection=Host=localhost;Database=orderservice_dev;Username=postgres;Password=postgres
-# Jwt__Key=your-secret-key-min-32-characters
-```
-
-**4. Apply Migrations**
-
-```bash
-# Create database
-createdb orderservice_dev
-
-# Apply migrations
-dotnet ef database update
-```
-
-**5. Run Service**
-
-```bash
-# Start with Dapr (recommended)
-./run.sh       # Linux/Mac
-.\run.ps1      # Windows
-
-# Or run directly
-dotnet run
-```
-
-**6. Verify**
-
-```bash
-# Check health
-curl http://localhost:7000/health
-
-# Swagger UI
-Open https://localhost:5001/swagger
-```
-
-### Common Commands
-
-```bash
-# Run tests
-dotnet test
-
-# Build
-dotnet build
-
-# Add migration
-dotnet ef migrations add MigrationName
-
-# Remove migration
-dotnet ef migrations remove
-
-# Production mode
-dotnet run --configuration Release
-```
-
-## 📚 Documentation
-
-| Document                                      | Description                             |
-| --------------------------------------------- | --------------------------------------- |
-| [📖 Developer Guide](docs/DEVELOPER_GUIDE.md) | Local setup, debugging, daily workflows |
-| [📘 Technical Reference](docs/TECHNICAL.md)   | Architecture, security, monitoring      |
-| [🤝 Contributing](docs/CONTRIBUTING.md)       | Contribution guidelines and workflow    |
-| [📝 API Testing Guide](API_TESTING.md)        | Complete API testing examples           |
-
-**API Documentation**: Swagger UI available at `/swagger` endpoint.
-
-## ⚙️ Configuration
-
-### Embedded Consumer Architecture
-
-The Order Service uses a **single-process architecture** with an embedded event consumer, following industry best practices (Amazon, Netflix pattern):
-
-**OrderService.Api** (REST API + Consumer)
-
-- **Publishes events** via Dapr Pub/Sub (for OrderCreated, OrderCancelled, etc.)
-- **Consumes events** via Dapr Pub/Sub subscriptions (RabbitMQ, Kafka, or Azure Service Bus)
-- Configuration: `Dapr` section and `.dapr/components/` for pub/sub settings
 
 **Why Single Process?**
 
-- ✅ **No code duplication** - Shared business logic in single deployment
-- ✅ **Single database connection pool** - Better resource utilization
-- ✅ **Simplified deployment** - One container, one process, one configuration
-- ✅ **No version skew** - API and consumer always in sync
-- ✅ **Easier monitoring** - Single process to monitor and debug
-- ✅ **Better performance** - No inter-process communication overhead
+- ✅ No code duplication — shared business logic
+- ✅ Single database connection pool
+- ✅ One container, one process, one config
+- ✅ API and consumer always in sync
+- ✅ No inter-process communication overhead
 
-**Embedded Consumer:**
-
-The API includes `OrderStatusConsumerService` as a BackgroundService that:
-
-- Subscribes to `order.status.changed` events from Order Processor Service
-- Updates order status in database using the same `IOrderService` as the API
-- Supports **any message broker** (RabbitMQ, Kafka, Azure Service Bus) via `IMessageBrokerAdapter`
-- Runs in the same process as the REST API for optimal resource sharing
-
-### Project Structure
-
-```
-OrderService/
-├── OrderService.Api/        # REST API + Embedded Consumer
-│   ├── Controllers/        # REST endpoints
-│   └── Consumers/          # Background consumer service
-├── OrderService.Core/       # Shared business logic
-│   ├── Services/           # Business logic layer
-│   │   ├── Messaging/      # Message broker adapters
-│   │   └── IOrderService   # Service interfaces
-│   ├── Repositories/       # Data access layer
-│   ├── Models/
-│   │   ├── Entities/       # Domain entities
-│   │   ├── DTOs/          # Data transfer objects
-│   │   ├── Events/        # Event contracts
-│   │   └── Enums/         # Enumeration types
-│   ├── Data/              # EF Core context and configurations
-│   ├── Configuration/     # Application settings classes
-│   ├── Validators/        # FluentValidation validators
-│   ├── Middlewares/       # Custom middlewares
-│   └── Extensions/        # Extension methods
-└── OrderService.Tests/    # Unit tests
-```
-
-### Technology Stack
-
-- **Framework**: ASP.NET Core 8
-- **Database**: PostgreSQL with Entity Framework Core
-- **Authentication**: JWT Bearer tokens
-- **Validation**: FluentValidation
-- **Messaging**: RabbitMQ & Azure Service Bus
-- **Documentation**: Swagger/OpenAPI
-- **Serialization**: System.Text.Json
-
-## 🔧 Configuration
-
-### Environment Setup
-
-1. Copy `.env.example` to `.env`
-2. Update the values in `.env` with your configuration
-
-### Database Connection
-
-```bash
-ConnectionStrings__DefaultConnection=Host=localhost;Database=orderservice_dev;Username=username;Password=password
-```
-
-### JWT Settings
-
-```bash
-Jwt__Key=your-secret-key-min-32-characters
-Jwt__Issuer=OrderService
-Jwt__Audience=OrderService.Users
-Jwt__ExpiryInMinutes=60
-```
-
-### Message Broker Configuration
-
-The Order Service supports **multiple message brokers** for maximum flexibility:
-
-```bash
-# RabbitMQ (default)
-MessageBroker__Provider=RabbitMQ
-MessageBroker__RabbitMQ__ConnectionString=amqp://guest:guest@localhost:5672/
-MessageBroker__RabbitMQ__Exchange=xshopai.events
-MessageBroker__RabbitMQ__ExchangeType=topic
-
-# Kafka (alternative)
-MessageBroker__Provider=Kafka
-MessageBroker__Kafka__BootstrapServers=localhost:9092
-MessageBroker__Kafka__GroupId=order-service-group
-
-# Azure Service Bus (alternative)
-MessageBroker__Provider=AzureServiceBus
-MessageBroker__AzureServiceBus__ConnectionString=Endpoint=sb://...
-MessageBroker__AzureServiceBus__TopicName=order-events
-```
-
-The embedded consumer automatically uses the configured broker via the `IMessageBrokerAdapter` interface.
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - .NET 8 SDK
-- PostgreSQL 12+
-- RabbitMQ (optional, for event publishing)
-- Azure Service Bus (optional, alternative to RabbitMQ)
+- SQL Server 2019+
+- Docker & Docker Compose (optional)
+- Dapr CLI (for production-like setup)
 
-### Installation
+### Quick Start with Docker Compose
 
-1. **Clone the repository**
+```bash
+# Clone the repository
+git clone https://github.com/xshopai/order-service.git
+cd order-service
 
-   ```bash
-   git clone [repository-url]
-   cd order-service
-   ```
+# Start SQL Server + service
+docker-compose up -d
 
-2. **Install dependencies**
+# Verify the service is healthy
+curl http://localhost:8006/health
+```
 
-   ```bash
-   dotnet restore
-   ```
+### Local Development Setup
 
-3. **Configure environment**
+<details>
+<summary><b>🔧 Without Dapr (Simple Setup)</b></summary>
 
-   ```bash
-   cp .env.example .env
-   # Edit .env with your settings
-   ```
+```bash
+# Restore dependencies
+dotnet restore
 
-4. **Setup database**
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
 
-   ```bash
-   # Create database
-   createdb orderservice_dev
+# Start SQL Server (Docker)
+docker-compose -f docker-compose.db.yml up -d
 
-   # Apply migrations
-   dotnet ef database update
-   ```
+# Apply migrations
+dotnet ef database update
 
-5. **Run the application**
+# Run the service
+dotnet run --project OrderService.Api
+```
 
-   ```bash
-   dotnet run
-   ```
+📖 See [Local Development Guide](docs/LOCAL_DEVELOPMENT.md) for detailed instructions.
 
-6. **Access Swagger UI**
-   - Navigate to `https://localhost:5001/swagger`
+</details>
 
-## 📋 API Endpoints
+<details>
+<summary><b>⚡ With Dapr (Production-like)</b></summary>
 
-### Core Endpoints
+```bash
+# Ensure Dapr is initialized
+dapr init
 
-| Method | Endpoint                            | Description                   | Auth Required |
-| ------ | ----------------------------------- | ----------------------------- | ------------- |
-| GET    | `/`                                 | Health check and service info | No            |
-| GET    | `/api/orders`                       | Get paginated orders          | Yes           |
-| POST   | `/api/orders`                       | Create new order              | Yes           |
-| GET    | `/api/orders/{id}`                  | Get order by ID               | Yes           |
-| PUT    | `/api/orders/{id}/status`           | Update order status           | Yes           |
-| GET    | `/api/orders/customer/{customerId}` | Get orders by customer        | Yes           |
-| GET    | `/api/orders/search`                | Search orders with filters    | Yes           |
+# Start with Dapr sidecar
+./run.sh       # Linux/Mac
+.\run.ps1      # Windows
 
-### Authentication
+# Or manually
+dapr run \
+  --app-id order-service \
+  --app-port 8006 \
+  --dapr-http-port 3500 \
+  --dapr-grpc-port 50001 \
+  --resources-path .dapr/components \
+  --config .dapr/config.yaml \
+  -- dotnet run --project OrderService.Api
+```
 
-- All endpoints (except health check) require JWT authentication
-- Include `Authorization: Bearer {token}` header
-- Roles supported: `customer`, `admin`
+> **Note:** All services now use the standard Dapr ports (3500 for HTTP, 50001 for gRPC).
 
-## 🔄 Event-Driven Architecture
+</details>
 
-The service publishes and consumes events via a configurable message broker:
+---
 
-### Events Published
+## 📚 Documentation
 
-- **OrderCreatedEvent**: Published when a new order is created
-- **OrderCancelledEvent**: Published when an order is cancelled
-- **OrderUpdatedEvent**: Published when order details change
+| Document                                          | Description                                        |
+| :------------------------------------------------ | :------------------------------------------------- |
+| 📘 [Local Development](docs/LOCAL_DEVELOPMENT.md) | Step-by-step local setup and development workflows |
+| 📘 [Technical Reference](docs/TECHNICAL.md)       | Architecture, security, monitoring                 |
+| ☁️ [Azure Container Apps](docs/ACA_DEPLOYMENT.md) | Deploy to serverless containers with built-in Dapr |
+| 📝 [API Testing Guide](API_TESTING.md)            | Complete API testing examples with sample requests |
 
-### Events Consumed
+**API Documentation**: Swagger UI available at `/swagger` endpoint.
 
-- **OrderStatusChangedEvent**: Consumed from Order Processor Service (saga orchestrator)
-  - Updates order status based on saga execution results
-  - Reflects Payment, Inventory, and Shipping service outcomes
+---
 
-### Message Broker Support
+## 🔌 API Reference
 
-- **RabbitMQ**: Topic-based routing with configurable exchanges
-- **Kafka**: Consumer groups with topic subscriptions
-- **Azure Service Bus**: Topic/subscription pattern with managed identity support
-- **Broker-Agnostic**: Switch between providers via configuration without code changes
+| Method | Endpoint                            | Description            | Auth |
+| :----- | :---------------------------------- | :--------------------- | :--- |
+| `GET`  | `/`                                 | Health check           | No   |
+| `GET`  | `/api/orders`                       | Get paginated orders   | Yes  |
+| `POST` | `/api/orders`                       | Create new order       | Yes  |
+| `GET`  | `/api/orders/{id}`                  | Get order by ID        | Yes  |
+| `PUT`  | `/api/orders/{id}/status`           | Update order status    | Yes  |
+| `GET`  | `/api/orders/customer/{customerId}` | Get orders by customer | Yes  |
+| `GET`  | `/api/orders/search`                | Search with filters    | Yes  |
+
+---
 
 ## 🧪 Testing
 
-### API Testing
-
-See [API_TESTING.md](API_TESTING.md) for comprehensive API testing examples.
-
-### Sample Test Data
-
-```json
-{
-  "customerId": "507f1f77bcf86cd799439011",
-  "productId": "507f1f77bcf86cd799439012"
-}
-```
-
-## 🛠️ Development
-
-### Using VS Code Debug
-
-- Use the "Debug Order Service" configuration for standard debugging
-- Use "Debug Order Service (Hot Reload)" for development with automatic reloading
-
-### Database Migrations
-
 ```bash
+# Run all tests
+dotnet test
+
+# Build without tests
+dotnet build
+
+# Run with specific configuration
+dotnet test --configuration Release
+
 # Add migration
 dotnet ef migrations add MigrationName
 
 # Apply migration
 dotnet ef database update
-
-# Remove last migration
-dotnet ef migrations remove
 ```
 
-## 🔒 Security
+### Test Coverage
 
-- JWT token authentication
-- Role-based authorization
-- Input validation with FluentValidation
-- SQL injection protection via EF Core
-- HTTPS enforcement in production
-- Structured error responses (no sensitive data exposure)
-
-## 📊 Monitoring & Logging
-
-- Comprehensive logging using `ILogger`
-- Structured logging with correlation IDs
-- Error tracking and debugging support
-- Performance monitoring capabilities
-- Health check endpoints
-
-## 🚀 Deployment
-
-### Environment Variables
-
-- `ASPNETCORE_ENVIRONMENT`: Environment name
-- `ConnectionStrings__DefaultConnection`: Database connection
-- `Jwt__Key`: JWT signing key
-- `MessageBroker__Provider`: Message broker provider
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-For questions and support:
-
-- Check the [API Testing Guide](API_TESTING.md)
-- Review the Swagger documentation
-- Check application logs for debugging
-- Create an issue for bug reports or feature requests
+| Metric      | Status                   |
+| :---------- | :----------------------- |
+| Unit Tests  | ✅ xUnit                 |
+| Integration | ✅ WebApplicationFactory |
+| Validation  | ✅ FluentValidation      |
 
 ---
 
-**Built with ❤️ using ASP.NET Core 8**
+## 🏗️ Project Structure
+
+```
+order-service/
+├── 📁 OrderService.Api/            # REST API + Embedded Consumer
+│   ├── 📁 Controllers/             # REST endpoints
+│   ├── 📁 Consumers/               # Background consumer service
+│   └── 📄 Program.cs               # Application entry point
+├── 📁 OrderService.Core/           # Shared business logic
+│   ├── 📁 Services/                # Business logic layer
+│   │   └── 📁 Messaging/           # Message broker adapters
+│   ├── 📁 Repositories/            # Data access layer
+│   ├── 📁 Models/
+│   │   ├── 📁 Entities/            # Domain entities
+│   │   ├── 📁 DTOs/                # Data transfer objects
+│   │   ├── 📁 Events/              # Event contracts
+│   │   └── 📁 Enums/               # Enumeration types
+│   ├── 📁 Data/                    # EF Core context
+│   ├── 📁 Configuration/           # Settings classes
+│   ├── 📁 Validators/              # FluentValidation
+│   └── 📁 Middlewares/             # Custom middlewares
+├── 📁 OrderService.Tests/          # Unit tests
+├── 📁 .dapr/                       # Dapr configuration
+│   ├── 📁 components/              # Pub/sub, state stores
+│   └── 📄 config.yaml              # Dapr runtime configuration
+├── 📄 docker-compose.yml           # Full service stack
+├── 📄 docker-compose.db.yml        # SQL Server only
+├── 📄 Dockerfile                   # Production container image
+└── 📄 OrderService.sln             # Solution file
+```
+
+---
+
+## 🔧 Technology Stack
+
+| Category          | Technology                                        |
+| :---------------- | :------------------------------------------------ |
+| 🟣 Runtime        | .NET 8 / C# 12                                    |
+| 🌐 Framework      | ASP.NET Core 8 with Minimal API + Controllers     |
+| 🗄️ Database       | SQL Server 2022 with Entity Framework Core        |
+| ✅ Validation     | FluentValidation                                  |
+| 📨 Messaging      | Dapr Pub/Sub (RabbitMQ, Kafka, Azure Service Bus) |
+| 📋 Event Format   | CloudEvents 1.0 Specification                     |
+| 🔐 Authentication | JWT Bearer Tokens                                 |
+| 📖 API Docs       | Swagger / OpenAPI (Swashbuckle)                   |
+| 🧪 Testing        | xUnit + WebApplicationFactory                     |
+| 📊 Observability  | ILogger structured logging + correlation IDs      |
+
+---
+
+## ⚡ Quick Reference
+
+```bash
+# 🐳 Docker Compose
+docker-compose up -d              # Start all services
+docker-compose down               # Stop all services
+docker-compose -f docker-compose.db.yml up -d  # SQL Server only
+
+# 🟣 Local Development
+dotnet run --project OrderService.Api  # Run service
+dotnet watch --project OrderService.Api  # Hot reload
+
+# ⚡ Dapr Development
+./run.sh                          # Linux/Mac
+.\run.ps1                         # Windows
+
+# 🧪 Testing
+dotnet test                       # Run all tests
+dotnet build                      # Build solution
+
+# 🔍 Health Check
+curl http://localhost:8006/health
+curl http://localhost:8006/swagger
+```
+
+---
+
+## 📡 Events
+
+### Published
+
+| Event             | Description                    |
+| :---------------- | :----------------------------- |
+| `order.created`   | New order placed               |
+| `order.cancelled` | Order cancelled by user/system |
+| `order.updated`   | Order details changed          |
+
+### Consumed
+
+| Event                  | Source                         |
+| :--------------------- | :----------------------------- |
+| `order.status.changed` | Order Processor Service (saga) |
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these steps:
+
+1. **Fork** the repository
+2. **Create** a feature branch
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Write** tests for your changes
+4. **Run** the test suite
+   ```bash
+   dotnet test
+   ```
+5. **Commit** your changes
+   ```bash
+   git commit -m 'feat: add amazing feature'
+   ```
+6. **Push** to your branch
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+7. **Open** a Pull Request
+
+Please ensure your PR:
+
+- ✅ Passes all existing tests
+- ✅ Includes tests for new functionality
+- ✅ Follows the existing code style
+- ✅ Updates documentation as needed
+
+---
+
+## 🆘 Support
+
+| Resource         | Link                                                                       |
+| :--------------- | :------------------------------------------------------------------------- |
+| 🐛 Bug Reports   | [GitHub Issues](https://github.com/xshopai/order-service/issues)           |
+| 📖 Documentation | [docs/](docs/)                                                             |
+| 📝 API Testing   | [API_TESTING.md](API_TESTING.md)                                           |
+| 💬 Discussions   | [GitHub Discussions](https://github.com/xshopai/order-service/discussions) |
+
+---
+
+## 📄 License
+
+This project is part of the **xshopai** e-commerce platform.
+Licensed under the MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**[⬆ Back to Top](#-order-service)**
+
+Made with ❤️ by the xshopai team
+
+</div>
